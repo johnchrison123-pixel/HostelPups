@@ -1,0 +1,147 @@
+@import "tailwindcss";
+
+/* ====================================================================
+   HostelPups — Design Tokens
+   Theme: warm yellow + off-white. Friendly, trustworthy, India-modern.
+   ==================================================================== */
+
+:root {
+  /* Brand */
+  --color-brand-50: #FFFBEA;
+  --color-brand-100: #FFF3C4;
+  --color-brand-200: #FCE588;
+  --color-brand-300: #FADB5F;
+  --color-brand-400: #F7C948;
+  --color-brand-500: #F0B429;   /* primary */
+  --color-brand-600: #DE911D;
+  --color-brand-700: #CB6E17;
+  --color-brand-800: #B44D12;
+  --color-brand-900: #8D2B0B;
+
+  /* Neutrals */
+  --color-bg: #FFFCF5;          /* off-white background */
+  --color-bg-elevated: #FFFFFF;
+  --color-surface: #FFF8E7;     /* cream surface (cards, sections) */
+  --color-ink: #1A1A1A;
+  --color-ink-muted: #5C5C5C;
+  --color-ink-subtle: #8A8A8A;
+  --color-border: #ECE4D0;
+  --color-border-strong: #D8CFB6;
+
+  /* Accents */
+  --color-cta: #E91E63;         /* pink CTA — "Pay", "Contact" */
+  --color-cta-hover: #D81557;
+  --color-success: #10B981;     /* verified */
+  --color-warning: #F59E0B;
+  --color-danger: #DC2626;
+  --color-info: #3B82F6;
+
+  /* Wedge tags */
+  --color-tag-couple: #EC4899;
+  --color-tag-bachelor: #6366F1;
+  --color-tag-pet: #14B8A6;
+  --color-tag-student: #F59E0B;
+  --color-tag-verified: #10B981;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 12px -2px rgb(180 130 20 / 0.10);
+  --shadow-lg: 0 12px 32px -8px rgb(180 130 20 / 0.18);
+
+  /* Radius */
+  --radius-sm: 0.5rem;
+  --radius: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-full: 9999px;
+}
+
+@theme inline {
+  --color-brand-50: var(--color-brand-50);
+  --color-brand-100: var(--color-brand-100);
+  --color-brand-200: var(--color-brand-200);
+  --color-brand-300: var(--color-brand-300);
+  --color-brand-400: var(--color-brand-400);
+  --color-brand-500: var(--color-brand-500);
+  --color-brand-600: var(--color-brand-600);
+  --color-brand-700: var(--color-brand-700);
+  --color-brand-800: var(--color-brand-800);
+  --color-brand-900: var(--color-brand-900);
+
+  --color-bg: var(--color-bg);
+  --color-bg-elevated: var(--color-bg-elevated);
+  --color-surface: var(--color-surface);
+  --color-ink: var(--color-ink);
+  --color-ink-muted: var(--color-ink-muted);
+  --color-ink-subtle: var(--color-ink-subtle);
+  --color-border: var(--color-border);
+  --color-border-strong: var(--color-border-strong);
+
+  --color-cta: var(--color-cta);
+  --color-cta-hover: var(--color-cta-hover);
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-danger: var(--color-danger);
+  --color-info: var(--color-info);
+
+  --color-tag-couple: var(--color-tag-couple);
+  --color-tag-bachelor: var(--color-tag-bachelor);
+  --color-tag-pet: var(--color-tag-pet);
+  --color-tag-student: var(--color-tag-student);
+  --color-tag-verified: var(--color-tag-verified);
+
+  --font-sans: var(--font-plus-jakarta), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: var(--font-plus-jakarta), system-ui, -apple-system, sans-serif;
+
+  --radius-sm: var(--radius-sm);
+  --radius: var(--radius);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+}
+
+/* Base body */
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Selection color */
+::selection {
+  background: var(--color-brand-200);
+  color: var(--color-ink);
+}
+
+/* Focus ring */
+*:focus-visible {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Utility: subtle dotted bg for hero patterns */
+.bg-dot-pattern {
+  background-image: radial-gradient(circle, var(--color-border) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Utility: section divider */
+.divider-soft {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--color-border), transparent);
+}

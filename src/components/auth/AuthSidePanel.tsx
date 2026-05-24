@@ -17,14 +17,14 @@ interface AuthSidePanelProps {
 }
 
 const RENTER_BULLETS = [
-  "We'll send a 6-digit code to your phone — no password, no email",
+  "Sign up in 30 seconds. No email verification needed during beta.",
   "Talk directly to verified owners — no broker calls",
   `Zero brokerage. Ever. Pay only ${formatPrice(PRICING.user.week.price)}/week to unlock.`,
   "Move-in guarantee — refund if it isn't as described",
 ];
 
 const OWNER_BULLETS = [
-  "We'll send a 6-digit code to your phone — sign in instantly",
+  "Create your owner account in under a minute. Beta — no verification step.",
   "Reach 10,000+ verified renters actively searching",
   `Boost listings to top of search from ${formatPrice(PRICING.owner.boost.perDay)}/day`,
   "We handle KYC + photoshoot on the full-service tier",
@@ -68,7 +68,7 @@ export function AuthSidePanel({ flavor }: AuthSidePanelProps) {
         </h2>
         <p className="mt-4 text-base xl:text-lg text-[var(--color-ink)]/75 leading-relaxed">
           {isOwner
-            ? "Set up your listing in minutes. We bring serious renters — phone-verified, ID-checked — straight to your inbox."
+            ? "Set up your listing in minutes. We bring serious renters — ID-checked, payment-verified — straight to your inbox."
             : "Verified listings. Direct chat. No brokers. The way PG-hunting in India should have always been."}
         </p>
 

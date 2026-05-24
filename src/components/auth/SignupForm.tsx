@@ -6,282 +6,220 @@ import { useRouter } from "next/navigation";
 import {
   Phone,
   User,
+  Mail,
+  MapPin,
+  Lock,
   ArrowRight,
-  ArrowLeft,
-  CheckCircle2,
   Loader2,
-  KeyRound,
-  ShieldCheck,
-  PartyPopper,
+  Eye,
+  EyeOff,
+  MailCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/client";
-import { cn, formatPrice } from "@/lib/utils";
-import { PRICING } from "@/lib/site";
+import { cn } from "@/lib/utils";
+import { CITY_NAMES } from "@/lib/site";
 
-type Step = "details" | "verify" | "welcome";
+/**
+ * Renter signup — single-step password auth.
+ *
+ * Captures name + email + phone + city + password + T&C tick.
+ * On submit: supabase.auth.signUp(). If email-confirm is OFF in the
+ * Supabase dashboard, a session is returned immediately and we redirect
+ * to "/". Otherwise we show a "check your email" pending state.
+ *
+ * The DB trigger `handle_new_user` reads raw_user_meta_data (name, phone,
+ * intent) and writes a public.profiles row automatically — no client-side
+ * insert is needed.
+ */
 
-const STEPS: { key: Step; label: string }[] = [
-  { key: "details", label: "Details" },
-  { key: "verify", label: "Verify" },
-  { key: "welcome", label: "Welcome" },
-];
-
-const RESEND_COOLDOWN_S = 30;
-
+// Allow letters (incl. accented), spaces, dots, apostrophes, hyphens.
+const NAME_REGEX = /^[\p{L}\s.'-]{2,60}$/u;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^[6-9]\d{9}$/;
-const OTP_REGEX = /^\d{6}$/;
+const PASSWORD_MIN = 6;
+
+const CITY_OPTIONS = Object.entries(CITY_NAMES) as [string, string][];
 
 function normalisePhoneInput(raw: string) {
   return raw.replace(/[^0-9]/g, "").slice(0, 10);
 }
 
-function friendlyAuthError(message: string): string {
-  const m = message.toLowerCase();
+function friendlyError(err: { message?: string } | null | undefined): string {
+  const m = err?.message?.toLowerCase() ?? "";
+  if (m.includes("already registered") || m.includes("already exists") || m.includes("user already")) {
+    return "An account with this email already exists. Try logging in.";
+  }
+  if (m.includes("password should be at least") || m.includes("password is too short")) {
+    return `Password must be at least ${PASSWORD_MIN} characters.`;
+  }
   if (m.includes("rate limit")) {
-    return "Too many attempts. Please wait a minute and try again.";
+    return "Too many attempts. Wait a minute and try again.";
   }
-  if (m.includes("provider") && m.includes("phone")) {
-    return "Phone sign-in isn't enabled yet. Please check back soon.";
+  if (m.includes("invalid email")) {
+    return "That email doesn't look valid.";
   }
-  if (m.includes("invalid") && m.includes("phone")) {
-    return "That phone number doesn't look valid. Please use a 10-digit Indian mobile number.";
-  }
-  if (m.includes("token") || m.includes("otp") || m.includes("code")) {
-    return "That OTP didn't match. Please re-enter the 6-digit code or resend.";
-  }
-  if (m.includes("expired")) {
-    return "Your OTP has expired. Tap Resend to get a new one.";
-  }
-  return message || "Something went wrong. Please try again.";
+  return err?.message || "Something went wrong. Please try again.";
 }
 
-function StepIndicator({ current }: { current: Step }) {
-  const currentIdx = STEPS.findIndex((s) => s.key === current);
-
-  return (
-    <ol
-      className="flex items-center justify-center gap-2 sm:gap-3"
-      aria-label="Signup progress"
-    >
-      {STEPS.map((s, i) => {
-        const isActive = i === currentIdx;
-        const isDone = i < currentIdx;
-        return (
-          <React.Fragment key={s.key}>
-            <li
-              className="flex items-center gap-1.5 text-xs sm:text-sm"
-              aria-current={isActive ? "step" : undefined}
-            >
-              <span
-                className={cn(
-                  "inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold transition-colors",
-                  isDone && "bg-[var(--color-success)] text-white",
-                  isActive &&
-                    "bg-[var(--color-brand-500)] text-[var(--color-ink)] ring-4 ring-[var(--color-brand-100)]",
-                  !isDone &&
-                    !isActive &&
-                    "bg-[var(--color-surface)] text-[var(--color-ink-subtle)] border border-[var(--color-border-strong)]",
-                )}
-                aria-hidden="true"
-              >
-                {isDone ? <CheckCircle2 size={14} /> : i + 1}
-              </span>
-              <span
-                className={cn(
-                  "font-medium transition-colors",
-                  isActive
-                    ? "text-[var(--color-ink)]"
-                    : "text-[var(--color-ink-muted)]",
-                )}
-              >
-                {s.label}
-              </span>
-            </li>
-            {i < STEPS.length - 1 && (
-              <span
-                className={cn(
-                  "h-px w-4 sm:w-8 transition-colors",
-                  isDone
-                    ? "bg-[var(--color-success)]"
-                    : "bg-[var(--color-border-strong)]",
-                )}
-                aria-hidden="true"
-              />
-            )}
-          </React.Fragment>
-        );
-      })}
-    </ol>
-  );
+function passwordStrength(pw: string): { label: string; tone: "weak" | "ok" | "strong" } {
+  if (pw.length < PASSWORD_MIN) return { label: "Too short", tone: "weak" };
+  const variety =
+    (/[a-z]/.test(pw) ? 1 : 0) +
+    (/[A-Z]/.test(pw) ? 1 : 0) +
+    (/\d/.test(pw) ? 1 : 0) +
+    (/[^A-Za-z0-9]/.test(pw) ? 1 : 0);
+  if (pw.length >= 10 && variety >= 3) return { label: "Strong", tone: "strong" };
+  if (pw.length >= 8 && variety >= 2) return { label: "Good", tone: "ok" };
+  return { label: "Weak", tone: "weak" };
 }
 
 export function SignupForm() {
   const router = useRouter();
-  const [step, setStep] = React.useState<Step>("details");
+
   const [name, setName] = React.useState("");
+  const [email, setEmail] = React.useState("");
   const [phone, setPhone] = React.useState("");
-  const [otp, setOtp] = React.useState("");
-  const [sending, setSending] = React.useState(false);
-  const [verifying, setVerifying] = React.useState(false);
-  const [resendCooldown, setResendCooldown] = React.useState(0);
-  const [resendOk, setResendOk] = React.useState(false);
+  const [city, setCity] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [showPw, setShowPw] = React.useState(false);
+  const [terms, setTerms] = React.useState(false);
+
+  const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [pendingEmail, setPendingEmail] = React.useState<string | null>(null);
 
   const nameInputRef = React.useRef<HTMLInputElement>(null);
-  const otpInputRef = React.useRef<HTMLInputElement>(null);
 
-  const nameValid = name.trim().length >= 2;
+  // Per-field touched flags so we don't spam errors before the user interacts.
+  const [touched, setTouched] = React.useState({
+    name: false,
+    email: false,
+    phone: false,
+    city: false,
+    password: false,
+  });
+
+  React.useEffect(() => {
+    nameInputRef.current?.focus();
+  }, []);
+
+  const trimmedName = name.trim();
+  const trimmedEmail = email.trim().toLowerCase();
+
+  const nameValid = NAME_REGEX.test(trimmedName);
+  const emailValid = EMAIL_REGEX.test(trimmedEmail);
   const phoneValid = PHONE_REGEX.test(phone);
-  const otpValid = OTP_REGEX.test(otp);
-  const fullPhone = `+91${phone}`;
+  const cityValid = city.length > 0;
+  const passwordValid = password.length >= PASSWORD_MIN;
+  const allValid = nameValid && emailValid && phoneValid && cityValid && passwordValid && terms;
 
-  React.useEffect(() => {
-    if (step === "details") {
-      nameInputRef.current?.focus();
-    } else if (step === "verify") {
-      otpInputRef.current?.focus();
-    }
-  }, [step]);
+  const strength = passwordStrength(password);
 
-  React.useEffect(() => {
-    if (resendCooldown <= 0) return;
-    const t = setTimeout(() => setResendCooldown((c) => c - 1), 1000);
-    return () => clearTimeout(t);
-  }, [resendCooldown]);
-
-  async function sendOtp() {
-    const supabase = createClient();
-    // Name is captured into raw_user_meta_data so the handle_new_user
-    // trigger can copy it onto the profiles row when the account is created.
-    const { error: authError } = await supabase.auth.signInWithOtp({
-      phone: fullPhone,
-      options: {
-        shouldCreateUser: true,
-        data: { name: name.trim() },
-      },
-    });
-    return authError;
-  }
-
-  async function handleSendOtp(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!nameValid) {
-      setError("Please enter your name (at least 2 characters).");
-      return;
-    }
-    if (!phoneValid) {
-      setError("Enter a 10-digit Indian mobile number starting with 6, 7, 8, or 9.");
-      return;
-    }
-    setSending(true);
-    const authError = await sendOtp();
-    setSending(false);
-    if (authError) {
-      setError(friendlyAuthError(authError.message));
-      return;
-    }
-    setStep("verify");
-    setResendCooldown(RESEND_COOLDOWN_S);
-  }
 
-  async function handleVerifyOtp(e?: React.FormEvent) {
-    e?.preventDefault();
-    setError(null);
-    if (!otpValid) {
-      setError("Please enter the 6-digit code we sent you.");
-      return;
-    }
-    setVerifying(true);
-    const supabase = createClient();
-    const { error: authError } = await supabase.auth.verifyOtp({
-      phone: fullPhone,
-      token: otp,
-      type: "sms",
+    // Mark everything as touched so inline errors surface if submit is forced.
+    setTouched({
+      name: true,
+      email: true,
+      phone: true,
+      city: true,
+      password: true,
     });
-    setVerifying(false);
-    if (authError) {
-      setError(friendlyAuthError(authError.message));
+
+    if (!allValid) {
+      if (!nameValid) setError("Please enter your full name (2-60 letters).");
+      else if (!emailValid) setError("Please enter a valid email address.");
+      else if (!phoneValid)
+        setError("Enter a 10-digit Indian mobile number starting with 6, 7, 8, or 9.");
+      else if (!cityValid) setError("Please select your city.");
+      else if (!passwordValid) setError(`Password must be at least ${PASSWORD_MIN} characters.`);
+      else if (!terms) setError("Please agree to the Terms of Service and Privacy Policy.");
       return;
     }
-    // Success — session is set, cookies populated, profile row created by trigger.
-    setStep("welcome");
-  }
 
-  async function handleResend() {
-    if (resendCooldown > 0) return;
-    setError(null);
-    setResendOk(false);
-    setSending(true);
-    const authError = await sendOtp();
-    setSending(false);
+    setSubmitting(true);
+    const supabase = createClient();
+    const { data, error: authError } = await supabase.auth.signUp({
+      email: trimmedEmail,
+      password,
+      options: {
+        data: {
+          name: trimmedName,
+          phone: `+91${phone}`,
+          city,
+          intent: "renter",
+        },
+      },
+    });
+    setSubmitting(false);
+
     if (authError) {
-      setError(friendlyAuthError(authError.message));
+      setError(friendlyError(authError));
       return;
     }
-    setResendOk(true);
-    setResendCooldown(RESEND_COOLDOWN_S);
-  }
 
-  function handleEditPhone() {
-    setStep("details");
-    setOtp("");
-    setError(null);
-    setResendOk(false);
-  }
-
-  function handleContinue() {
-    router.replace("/");
-    router.refresh();
-  }
-
-  function handleOtpChange(raw: string) {
-    const digits = raw.replace(/\D/g, "").slice(0, 6);
-    setOtp(digits);
-    if (digits.length === 6 && !verifying) {
-      setTimeout(() => {
-        void handleVerifyOtp();
-      }, 0);
+    // If the founder leaves "Confirm email" ON in Supabase, no session is
+    // returned and we show a check-your-email message instead of redirecting.
+    if (data.session) {
+      router.replace("/");
+      router.refresh();
+      return;
     }
+
+    setPendingEmail(trimmedEmail);
   }
 
+  // ---- Pending state: email confirmation required ----
+  if (pendingEmail) {
+    return (
+      <div className="w-full">
+        <div className="text-center">
+          <div className="mx-auto inline-flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
+            <MailCheck size={32} className="text-[var(--color-success)]" aria-hidden="true" />
+          </div>
+          <h1 className="mt-5 text-3xl sm:text-4xl font-black tracking-tight text-[var(--color-ink)]">
+            Check your inbox
+          </h1>
+          <p className="mt-3 text-[var(--color-ink-muted)]">
+            We sent a confirmation link to{" "}
+            <span className="font-semibold text-[var(--color-ink)]">{pendingEmail}</span>.
+            Click the link to activate your account and log in.
+          </p>
+        </div>
+
+        <div className="mt-7 rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-6 sm:p-8 shadow-[var(--shadow-md)] text-center space-y-4">
+          <p className="text-sm text-[var(--color-ink-muted)]">
+            Didn&apos;t get the email? Check your spam folder, or contact{" "}
+            <a
+              href="mailto:support@hostelpups.in"
+              className="font-semibold text-[var(--color-brand-700)] hover:underline"
+            >
+              support@hostelpups.in
+            </a>
+            .
+          </p>
+          <Button type="button" variant="outline" size="lg" fullWidth href="/login">
+            Go to login
+            <ArrowRight size={18} />
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // ---- Default state: signup form ----
   return (
     <div className="w-full">
-      <StepIndicator current={step} />
-
-      <div className="mt-7 text-center">
-        {step === "details" && (
-          <>
-            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-[var(--color-ink)]">
-              Create your account
-            </h1>
-            <p className="mt-2 text-[var(--color-ink-muted)]">
-              Browse verified PGs free. Pay {formatPrice(PRICING.user.week.price)} only to contact an owner.
-            </p>
-          </>
-        )}
-        {step === "verify" && (
-          <>
-            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-[var(--color-ink)]">
-              Verify your number
-            </h1>
-            <p className="mt-2 text-[var(--color-ink-muted)]">
-              We sent a 6-digit code to{" "}
-              <span className="font-semibold text-[var(--color-ink)]">{fullPhone}</span>.
-            </p>
-          </>
-        )}
-        {step === "welcome" && (
-          <>
-            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-[var(--color-ink)]">
-              Welcome, {name.split(" ")[0] || "friend"}!
-            </h1>
-            <p className="mt-2 text-[var(--color-ink-muted)]">
-              Your account is ready. Let&apos;s find you a great PG.
-            </p>
-          </>
-        )}
+      <div className="text-center">
+        <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-[var(--color-ink)]">
+          Create your account
+        </h1>
+        <p className="mt-2 text-[var(--color-ink-muted)]">
+          Sign up in 30 seconds. No email verification needed during beta.
+        </p>
       </div>
 
       <div className="mt-7 rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-6 sm:p-8 shadow-[var(--shadow-md)]">
@@ -294,242 +232,238 @@ export function SignupForm() {
           </div>
         )}
 
-        {step === "details" && (
-          <form onSubmit={handleSendOtp} className="space-y-5" noValidate>
-            <div>
-              <label
-                htmlFor="signup-name"
-                className="block text-sm font-semibold mb-1.5 text-[var(--color-ink)]"
-              >
-                Your name
-              </label>
-              <div className="flex items-center gap-2 rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-bg)] px-4 h-12 transition-colors focus-within:border-[var(--color-brand-500)] focus-within:ring-2 focus-within:ring-[var(--color-brand-100)]">
-                <User
-                  size={16}
-                  className="text-[var(--color-ink-subtle)]"
-                  aria-hidden="true"
-                />
-                <input
-                  ref={nameInputRef}
-                  id="signup-name"
-                  type="text"
-                  autoComplete="name"
-                  placeholder="Aditya Menon"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="flex-1 bg-transparent outline-none text-base"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label
-                htmlFor="signup-phone"
-                className="block text-sm font-semibold mb-1.5 text-[var(--color-ink)]"
-              >
-                Phone number
-              </label>
-              <div className="flex items-center gap-2 rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-bg)] px-4 h-12 transition-colors focus-within:border-[var(--color-brand-500)] focus-within:ring-2 focus-within:ring-[var(--color-brand-100)]">
-                <Phone
-                  size={16}
-                  className="text-[var(--color-ink-subtle)]"
-                  aria-hidden="true"
-                />
-                <span className="text-base font-semibold text-[var(--color-ink-muted)] select-none">
-                  +91
-                </span>
-                <input
-                  id="signup-phone"
-                  type="tel"
-                  inputMode="numeric"
-                  autoComplete="tel-national"
-                  placeholder="98765 43210"
-                  value={phone}
-                  onChange={(e) => setPhone(normalisePhoneInput(e.target.value))}
-                  className="flex-1 bg-transparent outline-none text-base tracking-wider"
-                  aria-describedby="signup-phone-help"
-                  maxLength={10}
-                />
-              </div>
-              <p
-                id="signup-phone-help"
-                className="mt-1.5 text-xs text-[var(--color-ink-subtle)]"
-              >
-                We&apos;ll text you a one-time code. Standard SMS rates apply.
-              </p>
-            </div>
-
-            <Button
-              type="submit"
-              variant="cta"
-              size="lg"
-              fullWidth
-              disabled={sending || !nameValid || !phoneValid}
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+          {/* Name */}
+          <div>
+            <label
+              htmlFor="signup-name"
+              className="block text-sm font-semibold mb-1.5 text-[var(--color-ink)]"
             >
-              {sending ? (
-                <>
-                  <Loader2 size={18} className="animate-spin" />
-                  Sending code…
-                </>
-              ) : (
-                <>
-                  Send OTP
-                  <ArrowRight size={18} />
-                </>
-              )}
-            </Button>
-
-            <p className="text-center text-xs text-[var(--color-ink-subtle)] pt-1">
-              By signing up, you agree to our{" "}
-              <Link
-                href="/terms"
-                className="text-[var(--color-brand-700)] hover:underline font-medium"
-              >
-                Terms
-              </Link>{" "}
-              and{" "}
-              <Link
-                href="/privacy"
-                className="text-[var(--color-brand-700)] hover:underline font-medium"
-              >
-                Privacy Policy
-              </Link>
-              .
-            </p>
-          </form>
-        )}
-
-        {step === "verify" && (
-          <form onSubmit={handleVerifyOtp} className="space-y-5" noValidate>
-            <div>
-              <label
-                htmlFor="signup-otp"
-                className="block text-sm font-semibold mb-1.5 text-[var(--color-ink)]"
-              >
-                6-digit code
-              </label>
-              <div className="flex items-center gap-2 rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-bg)] px-4 h-14 transition-colors focus-within:border-[var(--color-brand-500)] focus-within:ring-2 focus-within:ring-[var(--color-brand-100)]">
-                <KeyRound size={18} className="text-[var(--color-ink-subtle)]" aria-hidden="true" />
-                <input
-                  ref={otpInputRef}
-                  id="signup-otp"
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  placeholder="123456"
-                  value={otp}
-                  onChange={(e) => handleOtpChange(e.target.value)}
-                  className="flex-1 bg-transparent outline-none text-2xl font-bold tracking-[0.5em] text-center"
-                  aria-describedby="signup-otp-help"
-                  maxLength={6}
-                />
-              </div>
-              <p
-                id="signup-otp-help"
-                className="mt-1.5 text-xs text-[var(--color-ink-subtle)]"
-              >
-                Enter the code from your SMS. It expires in 10 minutes.
-              </p>
-            </div>
-
-            {resendOk && (
-              <div
-                role="status"
-                className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700"
-              >
-                New code sent. Check your SMS.
-              </div>
-            )}
-
-            <Button
-              type="submit"
-              variant="cta"
-              size="lg"
-              fullWidth
-              disabled={verifying || !otpValid}
-            >
-              {verifying ? (
-                <>
-                  <Loader2 size={18} className="animate-spin" />
-                  Verifying…
-                </>
-              ) : (
-                <>
-                  Verify &amp; create account
-                  <ShieldCheck size={18} />
-                </>
-              )}
-            </Button>
-
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-sm">
-              <button
-                type="button"
-                onClick={handleEditPhone}
-                className="inline-flex items-center gap-1.5 text-[var(--color-brand-700)] hover:underline font-medium"
-              >
-                <ArrowLeft size={14} />
-                Wrong number? Edit
-              </button>
-              <button
-                type="button"
-                onClick={handleResend}
-                disabled={resendCooldown > 0 || sending}
-                className={cn(
-                  "font-medium transition-colors",
-                  resendCooldown > 0 || sending
-                    ? "text-[var(--color-ink-subtle)] cursor-not-allowed"
-                    : "text-[var(--color-brand-700)] hover:underline",
-                )}
-              >
-                {resendCooldown > 0
-                  ? `Resend in ${resendCooldown}s`
-                  : sending
-                    ? "Resending…"
-                    : "Resend OTP"}
-              </button>
-            </div>
-          </form>
-        )}
-
-        {step === "welcome" && (
-          <div className="text-center py-3 space-y-5">
-            <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
-              <PartyPopper
-                size={32}
-                className="text-[var(--color-success)]"
-                aria-hidden="true"
+              Full name
+            </label>
+            <div className="flex items-center gap-2 rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-bg)] px-4 h-12 transition-colors focus-within:border-[var(--color-brand-500)] focus-within:ring-2 focus-within:ring-[var(--color-brand-100)]">
+              <User size={16} className="text-[var(--color-ink-subtle)]" aria-hidden="true" />
+              <input
+                ref={nameInputRef}
+                id="signup-name"
+                type="text"
+                autoComplete="name"
+                placeholder="Aditya Menon"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onBlur={() => setTouched((t) => ({ ...t, name: true }))}
+                className="flex-1 bg-transparent outline-none text-base min-w-0"
+                aria-invalid={touched.name && !nameValid}
+                aria-describedby={touched.name && !nameValid ? "signup-name-err" : undefined}
               />
             </div>
-            <div className="space-y-1.5">
-              <p className="text-base font-semibold text-[var(--color-ink)]">
-                You&apos;re all set!
+            {touched.name && !nameValid && (
+              <p id="signup-name-err" className="mt-1.5 text-xs text-red-600">
+                Please enter your full name (2-60 letters).
               </p>
-              <p className="text-sm text-[var(--color-ink-muted)]">
-                Browse verified listings. When you find one you love, unlock the
-                owner&apos;s number for{" "}
-                <span className="font-semibold text-[var(--color-ink)]">
-                  {formatPrice(PRICING.user.week.price)}/week
-                </span>{" "}
-                or{" "}
-                <span className="font-semibold text-[var(--color-ink)]">
-                  {formatPrice(PRICING.user.singleUnlock.price)} for a single contact
-                </span>
-                .
-              </p>
-            </div>
-
-            <Button
-              type="button"
-              variant="cta"
-              size="lg"
-              fullWidth
-              onClick={handleContinue}
-            >
-              Continue to home
-              <ArrowRight size={18} />
-            </Button>
+            )}
           </div>
-        )}
+
+          {/* Email */}
+          <div>
+            <label
+              htmlFor="signup-email"
+              className="block text-sm font-semibold mb-1.5 text-[var(--color-ink)]"
+            >
+              Email
+            </label>
+            <div className="flex items-center gap-2 rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-bg)] px-4 h-12 transition-colors focus-within:border-[var(--color-brand-500)] focus-within:ring-2 focus-within:ring-[var(--color-brand-100)]">
+              <Mail size={16} className="text-[var(--color-ink-subtle)]" aria-hidden="true" />
+              <input
+                id="signup-email"
+                type="email"
+                autoComplete="email"
+                placeholder="aditya@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onBlur={() => setTouched((t) => ({ ...t, email: true }))}
+                className="flex-1 bg-transparent outline-none text-base min-w-0"
+                aria-invalid={touched.email && !emailValid}
+                aria-describedby={touched.email && !emailValid ? "signup-email-err" : undefined}
+              />
+            </div>
+            {touched.email && !emailValid && (
+              <p id="signup-email-err" className="mt-1.5 text-xs text-red-600">
+                Please enter a valid email address.
+              </p>
+            )}
+          </div>
+
+          {/* Phone */}
+          <div>
+            <label
+              htmlFor="signup-phone"
+              className="block text-sm font-semibold mb-1.5 text-[var(--color-ink)]"
+            >
+              Phone number
+            </label>
+            <div className="flex items-center gap-2 rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-bg)] px-4 h-12 transition-colors focus-within:border-[var(--color-brand-500)] focus-within:ring-2 focus-within:ring-[var(--color-brand-100)]">
+              <Phone size={16} className="text-[var(--color-ink-subtle)]" aria-hidden="true" />
+              <span className="text-base font-semibold text-[var(--color-ink-muted)] select-none">
+                +91
+              </span>
+              <input
+                id="signup-phone"
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel-national"
+                placeholder="98765 43210"
+                value={phone}
+                onChange={(e) => setPhone(normalisePhoneInput(e.target.value))}
+                onBlur={() => setTouched((t) => ({ ...t, phone: true }))}
+                className="flex-1 bg-transparent outline-none text-base tracking-wider min-w-0"
+                aria-invalid={touched.phone && !phoneValid}
+                aria-describedby={touched.phone && !phoneValid ? "signup-phone-err" : undefined}
+                maxLength={10}
+              />
+            </div>
+            {touched.phone && !phoneValid && (
+              <p id="signup-phone-err" className="mt-1.5 text-xs text-red-600">
+                Enter a 10-digit Indian mobile starting with 6, 7, 8, or 9.
+              </p>
+            )}
+          </div>
+
+          {/* City */}
+          <div>
+            <label
+              htmlFor="signup-city"
+              className="block text-sm font-semibold mb-1.5 text-[var(--color-ink)]"
+            >
+              City
+            </label>
+            <div className="flex items-center gap-2 rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-bg)] px-4 h-12 transition-colors focus-within:border-[var(--color-brand-500)] focus-within:ring-2 focus-within:ring-[var(--color-brand-100)]">
+              <MapPin size={16} className="text-[var(--color-ink-subtle)]" aria-hidden="true" />
+              <select
+                id="signup-city"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                onBlur={() => setTouched((t) => ({ ...t, city: true }))}
+                className="flex-1 bg-transparent outline-none text-base appearance-none min-w-0"
+                aria-invalid={touched.city && !cityValid}
+              >
+                <option value="">Select a city</option>
+                {CITY_OPTIONS.map(([slug, label]) => (
+                  <option key={slug} value={slug}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {touched.city && !cityValid && (
+              <p className="mt-1.5 text-xs text-red-600">Please select your city.</p>
+            )}
+          </div>
+
+          {/* Password */}
+          <div>
+            <label
+              htmlFor="signup-password"
+              className="block text-sm font-semibold mb-1.5 text-[var(--color-ink)]"
+            >
+              Password
+            </label>
+            <div className="flex items-center gap-2 rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-bg)] px-4 h-12 transition-colors focus-within:border-[var(--color-brand-500)] focus-within:ring-2 focus-within:ring-[var(--color-brand-100)]">
+              <Lock size={16} className="text-[var(--color-ink-subtle)]" aria-hidden="true" />
+              <input
+                id="signup-password"
+                type={showPw ? "text" : "password"}
+                autoComplete="new-password"
+                placeholder="At least 6 characters"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onBlur={() => setTouched((t) => ({ ...t, password: true }))}
+                className="flex-1 bg-transparent outline-none text-base min-w-0"
+                aria-invalid={touched.password && !passwordValid}
+                aria-describedby="signup-password-help"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPw((v) => !v)}
+                aria-label={showPw ? "Hide password" : "Show password"}
+                className="text-[var(--color-ink-subtle)] hover:text-[var(--color-ink)] p-1"
+              >
+                {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            <div
+              id="signup-password-help"
+              className="mt-1.5 flex items-center justify-between text-xs"
+            >
+              <span className="text-[var(--color-ink-subtle)]">Minimum {PASSWORD_MIN} characters.</span>
+              {password.length > 0 && (
+                <span
+                  className={cn(
+                    "font-semibold",
+                    strength.tone === "weak" && "text-red-600",
+                    strength.tone === "ok" && "text-amber-600",
+                    strength.tone === "strong" && "text-emerald-600",
+                  )}
+                >
+                  {strength.label}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Terms */}
+          <div className="pt-1">
+            <label
+              htmlFor="signup-terms"
+              className="flex items-start gap-2.5 cursor-pointer select-none"
+            >
+              <input
+                id="signup-terms"
+                type="checkbox"
+                checked={terms}
+                onChange={(e) => setTerms(e.target.checked)}
+                className="mt-0.5 h-5 w-5 rounded border-[var(--color-border-strong)] accent-[var(--color-brand-500)] cursor-pointer"
+              />
+              <span className="text-sm text-[var(--color-ink-muted)] leading-snug">
+                I agree to the{" "}
+                <Link
+                  href="/terms"
+                  className="font-semibold text-[var(--color-brand-700)] hover:underline"
+                >
+                  Terms of Service
+                </Link>{" "}
+                and{" "}
+                <Link
+                  href="/privacy"
+                  className="font-semibold text-[var(--color-brand-700)] hover:underline"
+                >
+                  Privacy Policy
+                </Link>
+                .
+              </span>
+            </label>
+          </div>
+
+          <Button
+            type="submit"
+            variant="cta"
+            size="lg"
+            fullWidth
+            disabled={submitting || !allValid}
+          >
+            {submitting ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Creating account…
+              </>
+            ) : (
+              <>
+                Create account
+                <ArrowRight size={18} />
+              </>
+            )}
+          </Button>
+        </form>
       </div>
 
       <p className="mt-6 text-center text-sm text-[var(--color-ink-muted)]">
@@ -538,7 +472,7 @@ export function SignupForm() {
           href="/login"
           className="font-semibold text-[var(--color-brand-700)] hover:underline"
         >
-          Login
+          Log in
         </Link>
       </p>
 

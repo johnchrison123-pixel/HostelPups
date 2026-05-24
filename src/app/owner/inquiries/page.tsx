@@ -137,7 +137,7 @@ export default async function OwnerInquiriesPage() {
                       </div>
                       <div className="mt-3 flex items-center gap-2 flex-wrap">
                         <Link
-                          href="/messages"
+                          href={`/owner/inquiries/${row.id}`}
                           className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-brand-500)] bg-[var(--color-brand-50)] px-3 py-1.5 text-xs font-bold text-[var(--color-brand-900)] hover:bg-[var(--color-brand-100)] transition-colors"
                         >
                           <MessageSquare size={12} aria-hidden="true" />

@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans } from "next/font/google";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
+import { GlobalCallListener } from "@/components/call/GlobalCallListener";
 import { buildMetadata, organizationSchema, websiteSchema } from "@/lib/seo";
 import { SITE } from "@/lib/site";
 import "./globals.css";
@@ -54,6 +55,13 @@ export default function RootLayout({
         <main className="flex-1 pb-16 lg:pb-0">{children}</main>
         <Footer />
         <MobileBottomNav />
+        {/*
+          Subscribes (for logged-in users) to realtime INSERTs on public.calls
+          where callee_id = me, and pops an IncomingCallModal when a new
+          ringing call arrives. Suppressed on /call/[id] so the in-call UI
+          owns the foreground.
+        */}
+        <GlobalCallListener />
       </body>
     </html>
   );

@@ -1,37 +1,56 @@
 import type { Metadata } from "next";
-import { MessageSquare } from "lucide-react";
+import { redirect } from "next/navigation";
+import { ShieldCheck } from "lucide-react";
 import { Container } from "@/components/ui/Container";
-import { Button } from "@/components/ui/Button";
+import { ConversationList } from "@/components/chat/ConversationList";
 import { buildMetadata } from "@/lib/seo";
+import { getCurrentUser } from "@/lib/auth";
+import { getMyConversations } from "@/lib/chat-queries";
 
 export const metadata: Metadata = buildMetadata({
   title: "Messages",
+  description:
+    "Your conversations with HostelPups verified PG owners. Contact details stay protected — phone numbers and emails are hidden in both directions.",
   path: "/messages",
   noindex: true,
 });
 
-export default function MessagesPage() {
+export default async function MessagesPage() {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/login?next=/messages");
+  }
+
+  const { asRenter, asOwner } = await getMyConversations();
+
   return (
-    <Container size="md" className="py-16 sm:py-24">
-      <div className="text-center max-w-xl mx-auto">
-        <div className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-brand-100)] text-[var(--color-brand-700)] mb-6">
-          <MessageSquare size={28} />
-        </div>
-        <h1 className="text-3xl sm:text-4xl font-black tracking-tight">
+    <Container size="md" className="py-6 sm:py-10">
+      <header className="mb-5 sm:mb-7">
+        <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
           Messages
         </h1>
-        <p className="mt-4 text-lg text-[var(--color-ink-muted)] leading-relaxed">
-          Sign in to see your conversations with PG owners.
+        <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
+          Your conversations with PG owners (and renters, if you list a
+          property).
         </p>
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Button href="/login" variant="cta" size="lg">
-            Sign in
-          </Button>
-          <Button href="/signup" variant="outline" size="lg">
-            Create account
-          </Button>
-        </div>
+      </header>
+
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3 sm:p-4 mb-6 flex items-start gap-2.5 text-xs sm:text-sm">
+        <ShieldCheck
+          size={16}
+          className="text-emerald-600 mt-0.5 shrink-0"
+          aria-hidden="true"
+        />
+        <p className="text-[var(--color-ink-muted)]">
+          <span className="font-semibold text-[var(--color-ink)]">
+            Phone numbers, emails and UPI IDs are hidden by HostelPups
+          </span>{" "}
+          — owners can&apos;t share contact details in chat (and you
+          can&apos;t either). It keeps brokers out and your deposit safe.
+        </p>
       </div>
+
+      <ConversationList asRenter={asRenter} asOwner={asOwner} />
     </Container>
   );
 }

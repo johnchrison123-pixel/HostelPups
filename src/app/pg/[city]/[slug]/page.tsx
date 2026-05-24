@@ -38,7 +38,10 @@ import {
   getListingGradient,
 } from "@/lib/mockListings";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth";
 import { formatPrice } from "@/lib/utils";
+import { InquiryStartButton } from "@/components/chat/InquiryStartButton";
+import { CallButton } from "@/components/call/CallButton";
 import type { Listing, WedgeTag, PropertyType, RoomType } from "@/lib/types";
 
 type Props = { params: Promise<{ city: string; slug: string }> };
@@ -200,6 +203,9 @@ const GENDER_LABEL: Record<string, string> = {
 export default async function ListingPage({ params }: Props) {
   const { city, slug } = await params;
   const supabase = await createClient();
+  // We need the auth state at render time so the "Send inquiry message" button
+  // can decide whether to open the inquiry-modal (logged in) or route to /login.
+  const currentUser = await getCurrentUser();
 
   // Fetch the listing with relations
   const { data: rawListing, error: listingError } = await supabase
@@ -562,9 +568,24 @@ export default async function ListingPage({ params }: Props) {
                 </Button>
               </div>
 
-              <Button href="/login" variant="outline" fullWidth className="mt-3">
-                Send inquiry message
-              </Button>
+              <InquiryStartButton
+                listingId={listing.id}
+                listingTitle={listing.title}
+                ownerName={owner?.business_name ?? "the owner"}
+                userIsAuthed={Boolean(currentUser)}
+                loginNext={`/pg/${city}/${slug}`}
+              />
+
+              {/* In-app voice call — no phone number exposed. Routes via WebRTC. */}
+              <div className="mt-3">
+                <CallButton
+                  listingId={listing.id}
+                  listingCity={city}
+                  listingSlug={slug}
+                  variant="primary"
+                  fullWidth
+                />
+              </div>
 
               <div className="mt-5 text-xs text-[var(--color-ink-subtle)] flex items-center gap-1.5">
                 <ShieldCheck size={12} className="text-emerald-600" aria-hidden="true" />

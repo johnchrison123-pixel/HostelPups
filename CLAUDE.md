@@ -34,6 +34,7 @@ These rules override default Claude behavior. Read before every task.
 | 2026-05-21 | "give me the codes here" — paste all 5 Supabase SQL files inline in chat for direct copy/paste (instead of GitHub navigation) |
 | 2026-05-21 | (screenshots) — verification query confirms tables exist but all counts=0. Seed file didn't run. Paste seed inline. |
 | 2026-05-21 | "done" — seed applied. Start Phase 1B: wire pages to Supabase queries + email magic-link auth + owner CRUD + photo upload to storage. |
+| 2026-05-21 | 3 Photos/profile/message/call data storage + Keep saved login data + 4 In-app call option — start Phase 2 (chat module + WebRTC calling skeleton in parallel) |
 
 *New rule: append every future instruction to this table.*
 

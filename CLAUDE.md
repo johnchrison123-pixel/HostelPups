@@ -36,6 +36,15 @@ These rules override default Claude behavior. Read before every task.
 | 2026-05-21 | "done" — seed applied. Start Phase 1B: wire pages to Supabase queries + email magic-link auth + owner CRUD + photo upload to storage. |
 | 2026-05-21 | 3 Photos/profile/message/call data storage + Keep saved login data + 4 In-app call option — start Phase 2 (chat module + WebRTC calling skeleton in parallel) |
 | 2026-05-21 | /loop — find what works / what doesn't, fix everything fixable, double-check, audit all pages/profiles/options/features/functions, mark pending what needs user, fix what I can myself |
+| 2026-05-21 | Reported live bug: magic link came from Supabase domain, click goes to localhost:3000. Both are Supabase dashboard config (not code). |
+| 2026-05-21 | (screenshot) "email rate limit exceeded" — Supabase free tier 4 emails/hour limit hit. Two fixes: wait 1 hour OR wire custom SMTP via Resend (free 3K emails/month). |
+| 2026-05-25 | (screenshot) "Error sending magic link email" — generic SMTP failure. Need to diagnose: Resend misconfigured? Sender domain rejected? Bad API key? |
+| 2026-05-25 | "i forgot to add the api key as password" — root cause of magic-link error. Just paste API key into SMTP Password field. |
+| 2026-05-25 | "still not working" — API key added but magic link still fails. Need Resend dashboard logs + SMTP screenshot to pinpoint. |
+| 2026-05-25 | (screenshots) Supabase SMTP config looks correct on visible fields. Resend dashboard shows "No sent emails yet" — emails never reached Resend at all. Likely: Enable Custom SMTP toggle is OFF, or password didn't save. |
+| 2026-05-25 | (screenshot) Toggle confirmed ON, all fields correct, Save Changes visible. Re-added API key. Still no emails in Resend. Need Auth Logs to diagnose. |
+| 2026-05-25 | "Remove Resend option from beginning. Switch to login with phone number. Test dummy number and OTP like we used for RingIn app." — pivot from email magic-link to phone OTP using Supabase test phone numbers (bypasses SMS provider for testing). |
+| 2026-05-25 | Rewrite LoginForm / SignupForm / OwnerSignupForm / AuthSidePanel to use Supabase phone OTP (signInWithOtp + verifyOtp). +91 prefix, 6-digit OTP, two-step (login) / three-step (signup) flows. Keep /auth/callback for future Google OAuth. |
 
 *New rule: append every future instruction to this table.*
 

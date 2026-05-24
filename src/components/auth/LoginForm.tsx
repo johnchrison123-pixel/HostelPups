@@ -2,18 +2,21 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
-  Mail,
+  Phone,
   ArrowRight,
+  ArrowLeft,
   CheckCircle2,
   Loader2,
-  MailCheck,
+  KeyRound,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
-type Step = "email" | "check_email";
+type Step = "phone" | "verify";
 
 interface LoginFormProps {
   /** Where to send the owner-login link. Defaults to /owner/login for renter form. */
@@ -23,9 +26,41 @@ interface LoginFormProps {
 }
 
 const STEPS: { key: Step; label: string }[] = [
-  { key: "email", label: "Email" },
-  { key: "check_email", label: "Check Inbox" },
+  { key: "phone", label: "Phone" },
+  { key: "verify", label: "Verify" },
 ];
+
+const RESEND_COOLDOWN_S = 30;
+
+// 10 digits, must start with 6/7/8/9 — Indian mobile format.
+const PHONE_REGEX = /^[6-9]\d{9}$/;
+const OTP_REGEX = /^\d{6}$/;
+
+/** Strip spaces, dashes, parentheses, plus signs from pasted input. */
+function normalisePhoneInput(raw: string) {
+  return raw.replace(/[^0-9]/g, "").slice(0, 10);
+}
+
+/** Map raw Supabase errors to user-friendly copy. Falls back to the raw message. */
+function friendlyAuthError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes("rate limit")) {
+    return "Too many attempts. Please wait a minute and try again.";
+  }
+  if (m.includes("provider") && m.includes("phone")) {
+    return "Phone sign-in isn't enabled yet. The team is wiring SMS — please try email login or check back soon.";
+  }
+  if (m.includes("invalid") && m.includes("phone")) {
+    return "That phone number doesn't look valid. Please use a 10-digit Indian mobile number.";
+  }
+  if (m.includes("token") || m.includes("otp") || m.includes("code")) {
+    return "That OTP didn't match. Please re-enter the 6-digit code or resend.";
+  }
+  if (m.includes("expired")) {
+    return "Your OTP has expired. Tap Resend to get a new one.";
+  }
+  return message || "Something went wrong. Please try again.";
+}
 
 function StepIndicator({ current }: { current: Step }) {
   const currentIdx = STEPS.findIndex((s) => s.key === current);
@@ -47,13 +82,12 @@ function StepIndicator({ current }: { current: Step }) {
               <span
                 className={cn(
                   "inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold transition-colors",
-                  isDone &&
-                    "bg-[var(--color-success)] text-white",
+                  isDone && "bg-[var(--color-success)] text-white",
                   isActive &&
                     "bg-[var(--color-brand-500)] text-[var(--color-ink)] ring-4 ring-[var(--color-brand-100)]",
                   !isDone &&
                     !isActive &&
-                    "bg-[var(--color-surface)] text-[var(--color-ink-subtle)] border border-[var(--color-border-strong)]"
+                    "bg-[var(--color-surface)] text-[var(--color-ink-subtle)] border border-[var(--color-border-strong)]",
                 )}
                 aria-hidden="true"
               >
@@ -64,7 +98,7 @@ function StepIndicator({ current }: { current: Step }) {
                   "font-medium transition-colors",
                   isActive
                     ? "text-[var(--color-ink)]"
-                    : "text-[var(--color-ink-muted)]"
+                    : "text-[var(--color-ink-muted)]",
                 )}
               >
                 {s.label}
@@ -76,7 +110,7 @@ function StepIndicator({ current }: { current: Step }) {
                   "h-px w-4 sm:w-8 transition-colors",
                   isDone
                     ? "bg-[var(--color-success)]"
-                    : "bg-[var(--color-border-strong)]"
+                    : "bg-[var(--color-border-strong)]",
                 )}
                 aria-hidden="true"
               />
@@ -117,70 +151,136 @@ function GoogleIcon({ size = 18 }: { size?: number }) {
   );
 }
 
-// Basic email shape check — Supabase will do real validation server-side.
-function isValidEmail(s: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
-}
-
 export function LoginForm({
   ownerLoginHref = "/owner/login",
   flavor = "renter",
 }: LoginFormProps) {
-  const [step, setStep] = React.useState<Step>("email");
-  const [email, setEmail] = React.useState("");
+  const router = useRouter();
+  const [step, setStep] = React.useState<Step>("phone");
+  const [phone, setPhone] = React.useState("");
+  const [otp, setOtp] = React.useState("");
   const [sending, setSending] = React.useState(false);
-  const [resending, setResending] = React.useState(false);
+  const [verifying, setVerifying] = React.useState(false);
+  const [resendCooldown, setResendCooldown] = React.useState(0);
   const [resendOk, setResendOk] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const emailValid = isValidEmail(email);
+  const phoneInputRef = React.useRef<HTMLInputElement>(null);
+  const otpInputRef = React.useRef<HTMLInputElement>(null);
 
-  async function sendMagicLink() {
+  const phoneValid = PHONE_REGEX.test(phone);
+  const otpValid = OTP_REGEX.test(otp);
+  const fullPhone = `+91${phone}`;
+
+  // Auto-focus input on step change.
+  React.useEffect(() => {
+    if (step === "phone") {
+      phoneInputRef.current?.focus();
+    } else if (step === "verify") {
+      otpInputRef.current?.focus();
+    }
+  }, [step]);
+
+  // Resend cooldown ticker.
+  React.useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setTimeout(() => setResendCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendCooldown]);
+
+  async function sendOtp() {
     const supabase = createClient();
-    const next = flavor === "owner" ? "/owner/dashboard" : "/";
     const { error: authError } = await supabase.auth.signInWithOtp({
-      email: email.trim().toLowerCase(),
+      phone: fullPhone,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+        shouldCreateUser: true,
       },
     });
     return authError;
   }
 
-  async function handleSendLink(e: React.FormEvent) {
+  async function handleSendOtp(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!emailValid) {
-      setError("Please enter a valid email address.");
+    if (!phoneValid) {
+      setError("Enter a 10-digit Indian mobile number starting with 6, 7, 8, or 9.");
       return;
     }
     setSending(true);
-    const authError = await sendMagicLink();
+    const authError = await sendOtp();
     setSending(false);
     if (authError) {
-      setError(authError.message);
+      setError(friendlyAuthError(authError.message));
       return;
     }
-    setStep("check_email");
+    setStep("verify");
+    setResendCooldown(RESEND_COOLDOWN_S);
+  }
+
+  async function handleVerifyOtp(e?: React.FormEvent) {
+    e?.preventDefault();
+    setError(null);
+    if (!otpValid) {
+      setError("Please enter the 6-digit code we sent you.");
+      return;
+    }
+    setVerifying(true);
+    const supabase = createClient();
+    const { error: authError } = await supabase.auth.verifyOtp({
+      phone: fullPhone,
+      token: otp,
+      type: "sms",
+    });
+    setVerifying(false);
+    if (authError) {
+      setError(friendlyAuthError(authError.message));
+      return;
+    }
+    // Success — session cookies are populated.
+    const next = flavor === "owner" ? "/owner/dashboard" : "/";
+    router.replace(next);
+    router.refresh();
   }
 
   async function handleResend() {
+    if (resendCooldown > 0) return;
     setError(null);
     setResendOk(false);
-    setResending(true);
-    const authError = await sendMagicLink();
-    setResending(false);
+    setSending(true);
+    const authError = await sendOtp();
+    setSending(false);
     if (authError) {
-      setError(authError.message);
+      setError(friendlyAuthError(authError.message));
       return;
     }
     setResendOk(true);
+    setResendCooldown(RESEND_COOLDOWN_S);
+  }
+
+  function handleEditPhone() {
+    setStep("phone");
+    setOtp("");
+    setError(null);
+    setResendOk(false);
   }
 
   function handleGoogleSignIn() {
     // PENDING (Phase 1C): wire Supabase OAuth provider once Google OAuth
-    // client is configured in Supabase Dashboard → Auth → Providers.
-    setError("Google sign-in is coming soon. Please use the magic link for now.");
+    // client is configured in Supabase Dashboard → Auth → Providers. The
+    // existing /auth/callback route handles the redirect.
+    setError("Google sign-in is coming soon. Please use phone OTP for now.");
+  }
+
+  // Auto-submit OTP once 6 digits are entered.
+  function handleOtpChange(raw: string) {
+    const digits = raw.replace(/\D/g, "").slice(0, 6);
+    setOtp(digits);
+    if (digits.length === 6 && !verifying) {
+      // Use setTimeout to ensure the latest state is read before submit.
+      setTimeout(() => {
+        void handleVerifyOtp();
+      }, 0);
+    }
   }
 
   return (
@@ -190,26 +290,24 @@ export function LoginForm({
 
       {/* Headline */}
       <div className="mt-7 text-center">
-        {step === "email" && (
+        {step === "phone" && (
           <>
             <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-[var(--color-ink)]">
               {flavor === "owner" ? "Welcome back, owner" : "Welcome back to HostelPups"}
             </h1>
             <p className="mt-2 text-[var(--color-ink-muted)]">
-              {flavor === "owner"
-                ? "Enter your email — we'll send you a secure login link."
-                : "Sign in with your email — it takes 10 seconds, no password."}
+              We&apos;ll send a 6-digit code to your phone — no password needed.
             </p>
           </>
         )}
-        {step === "check_email" && (
+        {step === "verify" && (
           <>
             <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-[var(--color-ink)]">
-              Check your inbox
+              Enter your code
             </h1>
             <p className="mt-2 text-[var(--color-ink-muted)]">
-              We sent a magic link to{" "}
-              <span className="font-semibold text-[var(--color-ink)]">{email}</span>.
+              We sent a 6-digit code to{" "}
+              <span className="font-semibold text-[var(--color-ink)]">{fullPhone}</span>.
             </p>
           </>
         )}
@@ -226,31 +324,36 @@ export function LoginForm({
           </div>
         )}
 
-        {step === "email" && (
-          <form onSubmit={handleSendLink} className="space-y-5" noValidate>
+        {step === "phone" && (
+          <form onSubmit={handleSendOtp} className="space-y-5" noValidate>
             <div>
               <label
-                htmlFor="email"
+                htmlFor="phone"
                 className="block text-sm font-semibold mb-1.5 text-[var(--color-ink)]"
               >
-                Email address
+                Phone number
               </label>
               <div className="flex items-center gap-2 rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-bg)] px-4 h-12 transition-colors focus-within:border-[var(--color-brand-500)] focus-within:ring-2 focus-within:ring-[var(--color-brand-100)]">
-                <Mail size={16} className="text-[var(--color-ink-subtle)]" aria-hidden="true" />
+                <Phone size={16} className="text-[var(--color-ink-subtle)]" aria-hidden="true" />
+                <span className="text-base font-semibold text-[var(--color-ink-muted)] select-none">
+                  +91
+                </span>
                 <input
-                  id="email"
-                  type="email"
-                  inputMode="email"
-                  autoComplete="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="flex-1 bg-transparent outline-none text-base"
-                  aria-describedby="email-help"
+                  ref={phoneInputRef}
+                  id="phone"
+                  type="tel"
+                  inputMode="numeric"
+                  autoComplete="tel-national"
+                  placeholder="98765 43210"
+                  value={phone}
+                  onChange={(e) => setPhone(normalisePhoneInput(e.target.value))}
+                  className="flex-1 bg-transparent outline-none text-base tracking-wider"
+                  aria-describedby="phone-help"
+                  maxLength={10}
                 />
               </div>
-              <p id="email-help" className="mt-1.5 text-xs text-[var(--color-ink-subtle)]">
-                We&apos;ll email you a one-click sign-in link. No password needed.
+              <p id="phone-help" className="mt-1.5 text-xs text-[var(--color-ink-subtle)]">
+                We&apos;ll text you a one-time code. Standard SMS rates apply.
               </p>
             </div>
 
@@ -259,16 +362,16 @@ export function LoginForm({
               variant="cta"
               size="lg"
               fullWidth
-              disabled={sending || !emailValid}
+              disabled={sending || !phoneValid}
             >
               {sending ? (
                 <>
                   <Loader2 size={18} className="animate-spin" />
-                  Sending link…
+                  Sending code…
                 </>
               ) : (
                 <>
-                  Send magic link
+                  Send OTP
                   <ArrowRight size={18} />
                 </>
               )}
@@ -317,22 +420,33 @@ export function LoginForm({
           </form>
         )}
 
-        {step === "check_email" && (
-          <div className="text-center py-3 space-y-5">
-            <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
-              <MailCheck
-                size={32}
-                className="text-[var(--color-success)]"
-                aria-hidden="true"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <p className="text-base font-semibold text-[var(--color-ink)]">
-                Click the link in your email to log in.
-              </p>
-              <p className="text-sm text-[var(--color-ink-muted)]">
-                The link expires in 10 minutes. Check your spam folder if you
-                don&apos;t see it within a minute.
+        {step === "verify" && (
+          <form onSubmit={handleVerifyOtp} className="space-y-5" noValidate>
+            <div>
+              <label
+                htmlFor="otp"
+                className="block text-sm font-semibold mb-1.5 text-[var(--color-ink)]"
+              >
+                6-digit code
+              </label>
+              <div className="flex items-center gap-2 rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-bg)] px-4 h-14 transition-colors focus-within:border-[var(--color-brand-500)] focus-within:ring-2 focus-within:ring-[var(--color-brand-100)]">
+                <KeyRound size={18} className="text-[var(--color-ink-subtle)]" aria-hidden="true" />
+                <input
+                  ref={otpInputRef}
+                  id="otp"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  placeholder="123456"
+                  value={otp}
+                  onChange={(e) => handleOtpChange(e.target.value)}
+                  className="flex-1 bg-transparent outline-none text-2xl font-bold tracking-[0.5em] text-center"
+                  aria-describedby="otp-help"
+                  maxLength={6}
+                />
+              </div>
+              <p id="otp-help" className="mt-1.5 text-xs text-[var(--color-ink-subtle)]">
+                Enter the code from your SMS. It expires in 10 minutes.
               </p>
             </div>
 
@@ -341,43 +455,58 @@ export function LoginForm({
                 role="status"
                 className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700"
               >
-                New link sent. Check your inbox.
+                New code sent. Check your SMS.
               </div>
             )}
 
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-1">
-              <Button
+            <Button
+              type="submit"
+              variant="cta"
+              size="lg"
+              fullWidth
+              disabled={verifying || !otpValid}
+            >
+              {verifying ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  Verifying…
+                </>
+              ) : (
+                <>
+                  Verify &amp; sign in
+                  <ShieldCheck size={18} />
+                </>
+              )}
+            </Button>
+
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-sm">
+              <button
                 type="button"
-                variant="outline"
-                size="md"
-                fullWidth
-                onClick={() => {
-                  setStep("email");
-                  setResendOk(false);
-                  setError(null);
-                }}
+                onClick={handleEditPhone}
+                className="inline-flex items-center gap-1.5 text-[var(--color-brand-700)] hover:underline font-medium"
               >
-                Wrong email? Try again
-              </Button>
-              <Button
+                <ArrowLeft size={14} />
+                Wrong number? Edit
+              </button>
+              <button
                 type="button"
-                variant="ghost"
-                size="md"
-                fullWidth
                 onClick={handleResend}
-                disabled={resending}
-              >
-                {resending ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    Resending…
-                  </>
-                ) : (
-                  "Resend link"
+                disabled={resendCooldown > 0 || sending}
+                className={cn(
+                  "font-medium transition-colors",
+                  resendCooldown > 0 || sending
+                    ? "text-[var(--color-ink-subtle)] cursor-not-allowed"
+                    : "text-[var(--color-brand-700)] hover:underline",
                 )}
-              </Button>
+              >
+                {resendCooldown > 0
+                  ? `Resend in ${resendCooldown}s`
+                  : sending
+                    ? "Resending…"
+                    : "Resend OTP"}
+              </button>
             </div>
-          </div>
+          </form>
         )}
       </div>
 

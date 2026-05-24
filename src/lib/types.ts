@@ -157,6 +157,47 @@ export interface Favorite {
   created_at: string;
 }
 
+/**
+ * In-app WebRTC voice call between a renter (user) and an owner (business),
+ * scoped to an inquiry. Phone numbers are never exposed across this boundary.
+ *
+ * Mirrors `public.calls` in supabase/migrations/0004_calls_schema.sql.
+ */
+export type CallStatus =
+  | "ringing"
+  | "accepted"
+  | "rejected"
+  | "missed"
+  | "ended"
+  | "failed"
+  | "cancelled";
+
+export type CallEndReason =
+  | "hangup_caller"
+  | "hangup_callee"
+  | "rejected"
+  | "no_answer"
+  | "network_error"
+  | "user_cancelled";
+
+export interface Call {
+  id: string;
+  inquiry_id: string;
+  caller_id: string;
+  callee_id: string;
+  status: CallStatus;
+  started_at: string;
+  accepted_at?: string;
+  ended_at?: string;
+  duration_seconds: number;
+  end_reason?: CallEndReason;
+  recording_url?: string;
+  caller_muted: boolean;
+  callee_muted: boolean;
+  was_speaker: boolean;
+  created_at: string;
+}
+
 export interface Review {
   id: string;
   user_id: string;

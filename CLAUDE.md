@@ -30,6 +30,7 @@ These rules override default Claude behavior. Read before every task.
 | 2026-05-21 | "Add dummy profile cards + profiles of hostels/PGs/flats in each section (removable later). Confirm business owner + user registration features. Double-check with multiple agents that all functions are working." |
 | 2026-05-21 | "There should be option to register for business in sign up section and in login section as login as business" — add prominent Renter/Business mode toggle on /signup, /login, /owner/signup, /owner/login |
 | 2026-05-21 | "what all things has to be done by my side give me" — produce a complete prioritized founder action checklist |
+| 2026-05-21 | (7 asks): (1) filter in left vacant section, (2) keep saved login data, (3) photos/profile/message/call data, (4) in-app call option, (5) block business from revealing phone numbers via obfuscation tricks (99five34, 9-99-78, etc), (6) find what's missing/not working, (7) for business: cover page, images, descriptions, vacancies, manage profiles |
 
 *New rule: append every future instruction to this table.*
 

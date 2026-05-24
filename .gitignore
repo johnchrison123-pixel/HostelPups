@@ -41,3 +41,8 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+
+# supabase — local CLI state, never commit. Migrations + seed (root of supabase/) ARE committed.
+/supabase/.branches
+/supabase/.temp
+/supabase/.env

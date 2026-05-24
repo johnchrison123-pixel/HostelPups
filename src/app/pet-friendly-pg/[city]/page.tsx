@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { PawPrint } from "lucide-react";
 import { WedgeLanding } from "@/components/marketing/WedgeLanding";
-import { buildMetadata } from "@/lib/seo";
+import { buildMetadata, breadcrumbSchema } from "@/lib/seo";
 import { CITY_NAMES } from "@/lib/site";
 
 type Props = { params: Promise<{ city: string }> };
@@ -24,9 +24,26 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function Page({ params }: Props) {
   const { city } = await params;
+  const cityName = CITY_NAMES[city] ?? city;
 
   return (
-    <WedgeLanding
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(
+            breadcrumbSchema([
+              { name: "Home", url: "/" },
+              { name: cityName, url: `/pg-in-${city}` },
+              {
+                name: "Pet-Friendly",
+                url: `/pet-friendly-pg/${city}`,
+              },
+            ]),
+          ),
+        }}
+      />
+      <WedgeLanding
       city={city}
       wedge="pet"
       wedgeLabel="Pet-Friendly"
@@ -54,7 +71,8 @@ export default async function Page({ params }: Props) {
         "Filter by pet type and size — small dog vs Labrador vs cat — owners specify capacity.",
         "Move-in guarantee: if the owner backtracks on pet permission after you arrive, we refund.",
       ]}
-    />
+      />
+    </>
   );
 }
 

@@ -1,10 +1,25 @@
 import type { MetadataRoute } from "next";
-import { SITE, KERALA_CITIES, FULL_SERVICE_CITIES } from "@/lib/site";
+import { SITE } from "@/lib/site";
+
+/**
+ * Only cities with actual landing pages go in the sitemap.
+ * /pg-in-kollam, /pg-in-kannur etc. don't exist yet — keep them out
+ * so the sitemap doesn't promise 404 URLs.
+ */
+const LAUNCHED_CITIES = [
+  "kochi",
+  "trivandrum",
+  "calicut",
+  "trichur",
+  "bangalore",
+  "chennai",
+] as const;
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
 
-  // Static marketing pages
+  // Static marketing + indexable pages only.
+  // /login, /signup, /owner/signup are noindex — excluded.
   const staticPaths: MetadataRoute.Sitemap = [
     "/",
     "/about",
@@ -15,9 +30,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/privacy",
     "/terms",
     "/search",
-    "/login",
-    "/signup",
-    "/owner/signup",
+    "/cities",
   ].map((p) => ({
     url: `${SITE.url}${p}`,
     lastModified: now,
@@ -25,9 +38,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: p === "/" ? 1.0 : 0.7,
   }));
 
-  // Per-city PG pages (Kerala + full-service cities)
-  const allCities = Array.from(new Set([...KERALA_CITIES, ...FULL_SERVICE_CITIES]));
-  const cityPaths: MetadataRoute.Sitemap = allCities.flatMap((city) => [
+  // Per-city PG + wedge pages (only for cities that actually have pages)
+  const cityPaths: MetadataRoute.Sitemap = LAUNCHED_CITIES.flatMap((city) => [
     {
       url: `${SITE.url}/pg-in-${city}`,
       lastModified: now,

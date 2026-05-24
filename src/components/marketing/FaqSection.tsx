@@ -18,14 +18,16 @@ export function FaqSection({
   return (
     <section className="py-16 sm:py-24 bg-[var(--color-surface)] border-y border-[var(--color-border)]">
       <Container size="md">
-        <div className="text-center mb-12">
-          <p className="text-sm font-semibold text-[var(--color-brand-700)] uppercase tracking-wider">
-            FAQ
-          </p>
-          <h2 className="mt-2 text-3xl sm:text-4xl font-black tracking-tight">
-            {title}
-          </h2>
-        </div>
+        {title && (
+          <div className="text-center mb-12">
+            <p className="text-sm font-semibold text-[var(--color-brand-700)] uppercase tracking-wider">
+              FAQ
+            </p>
+            <h2 className="mt-2 text-3xl sm:text-4xl font-black tracking-tight">
+              {title}
+            </h2>
+          </div>
+        )}
 
         <div className="flex flex-col gap-3">
           {items.map((item, i) => {

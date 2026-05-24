@@ -1,10 +1,12 @@
 import * as React from "react";
 import Link from "next/link";
-import { MapPin, ShieldCheck, ArrowRight, Heart, Users, PawPrint } from "lucide-react";
+import { MapPin, ShieldCheck, ArrowRight, ArrowUpRight, Heart, Users, PawPrint } from "lucide-react";
 import { Container } from "@/components/ui/Container";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { ListingGrid } from "@/components/listings/ListingGrid";
 import { CITY_NAMES } from "@/lib/site";
+import { getListingsByCity } from "@/lib/mockListings";
 
 interface CityLandingProps {
   city: string;
@@ -22,6 +24,8 @@ export function CityLanding({
   totalListings,
 }: CityLandingProps) {
   const cityName = CITY_NAMES[city] ?? city;
+  const cityListings = getListingsByCity(city, 6);
+  const totalCityListings = getListingsByCity(city).length;
 
   const defaultIntro = `Find verified PGs, hostels, and rental flats in ${cityName}. From budget-friendly student PGs near colleges to couple-friendly flats in tech parks — all verified, all direct from owners. No brokers. No hidden fees.`;
 
@@ -134,6 +138,49 @@ export function CityLanding({
               </Link>
             ))}
           </div>
+        </Container>
+      </section>
+
+      {/* Top listings in this city */}
+      <section
+        className="py-16 bg-[var(--color-bg)]"
+        aria-labelledby={`top-${city}-listings-heading`}
+      >
+        <Container>
+          <div className="flex items-end justify-between flex-wrap gap-4 mb-8">
+            <div>
+              <p className="text-sm font-semibold text-[var(--color-brand-700)] uppercase tracking-wider">
+                Live now
+              </p>
+              <h2
+                id={`top-${city}-listings-heading`}
+                className="mt-2 text-3xl font-black tracking-tight"
+              >
+                Top verified PGs in {cityName}
+              </h2>
+              <p className="mt-2 text-[var(--color-ink-muted)] max-w-xl">
+                Direct chat with KYC-verified owners. No broker fees, ever.
+              </p>
+            </div>
+            <Link
+              href={`/search?city=${city}`}
+              className="inline-flex items-center gap-1 text-sm font-semibold text-[var(--color-brand-700)] hover:underline"
+            >
+              Show all {totalCityListings > 0 ? `${totalCityListings}+ ` : ""}
+              {cityName} listings
+              <ArrowUpRight size={14} aria-hidden="true" />
+            </Link>
+          </div>
+
+          <ListingGrid
+            listings={cityListings}
+            columns={3}
+            headingLevel={3}
+            hideCity
+            emptyMessage={`We're onboarding ${cityName} owners now — be among the first to list.`}
+            emptyCtaHref="/owner/signup"
+            emptyCtaLabel={`List your ${cityName} property`}
+          />
         </Container>
       </section>
 

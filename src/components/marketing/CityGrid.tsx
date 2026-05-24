@@ -105,7 +105,7 @@ export function CityGrid() {
                     <MapPin size={12} />
                     {c.state}
                   </div>
-                  <div className="text-2xl font-black mt-0.5">{c.name}</div>
+                  <h3 className="text-2xl font-black mt-0.5">{c.name}</h3>
                 </div>
                 {c.isLaunched ? (
                   <span className="absolute top-3 right-3 text-[10px] font-semibold uppercase bg-white/95 text-emerald-700 px-2 py-1 rounded-full">

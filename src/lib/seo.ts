@@ -163,7 +163,7 @@ export function lodgingSchema(l: LodgingSchemaInput) {
       addressRegion: l.address.state ?? "Kerala",
       addressCountry: "IN",
     },
-    priceRange: `₹${l.priceFrom}+ per month`,
+    priceRange: l.priceFrom > 0 ? `₹${l.priceFrom}+ per month` : "Price on request",
     amenityFeature: l.amenities?.map((name) => ({
       "@type": "LocationFeatureSpecification",
       name,

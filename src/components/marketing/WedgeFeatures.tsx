@@ -40,7 +40,7 @@ const wedges = [
     title: "Near Top Colleges",
     body:
       "Walking distance to Rajagiri, CUSAT, MEC, NIT, IIT, Christ. Filter by your campus.",
-    href: "/search?near=college",
+    href: "/search?tag=student",
     tint: "bg-amber-50 text-amber-700 border-amber-200",
   },
   {

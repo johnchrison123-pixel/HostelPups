@@ -1,9 +1,12 @@
 import * as React from "react";
 import Link from "next/link";
-import { ArrowRight, ShieldCheck } from "lucide-react";
+import { ArrowRight, ArrowUpRight, ShieldCheck } from "lucide-react";
 import { Container } from "@/components/ui/Container";
 import { Button } from "@/components/ui/Button";
+import { ListingGrid } from "@/components/listings/ListingGrid";
 import { CITY_NAMES } from "@/lib/site";
+import { getListingsByWedge } from "@/lib/mockListings";
+import type { WedgeTag } from "@/lib/types";
 
 interface WedgeLandingProps {
   city: string;
@@ -32,6 +35,14 @@ export function WedgeLanding({
     bachelor: "bg-indigo-50 border-indigo-200 text-indigo-800",
     pet: "bg-teal-50 border-teal-200 text-teal-800",
   }[badgeTone];
+
+  // Listings tagged with this wedge in this city (fall back to nation-wide if none in city)
+  const wedgeAsTag = wedge as WedgeTag;
+  const cityWedgeListings = getListingsByWedge(wedgeAsTag, city, 6);
+  const nationalWedgeListings = getListingsByWedge(wedgeAsTag, undefined, 6);
+  const listingsToShow =
+    cityWedgeListings.length > 0 ? cityWedgeListings : nationalWedgeListings;
+  const hasCityListings = cityWedgeListings.length > 0;
 
   return (
     <>
@@ -86,6 +97,51 @@ export function WedgeLanding({
               </div>
             ))}
           </div>
+        </Container>
+      </section>
+
+      {/* Verified wedge listings */}
+      <section
+        className="py-16 bg-[var(--color-bg)]"
+        aria-labelledby={`wedge-${wedge}-${city}-listings-heading`}
+      >
+        <Container>
+          <div className="flex items-end justify-between flex-wrap gap-4 mb-8">
+            <div>
+              <p className="text-sm font-semibold text-[var(--color-brand-700)] uppercase tracking-wider">
+                Verified listings
+              </p>
+              <h2
+                id={`wedge-${wedge}-${city}-listings-heading`}
+                className="mt-2 text-3xl font-black tracking-tight"
+              >
+                {hasCityListings
+                  ? `Verified ${wedgeLabel} listings in ${cityName}`
+                  : `${wedgeLabel} listings across India`}
+              </h2>
+              <p className="mt-2 text-[var(--color-ink-muted)] max-w-xl">
+                {hasCityListings
+                  ? `Each one explicitly tagged ${wedgeLabel.toLowerCase()} by the owner during onboarding.`
+                  : `We're verifying ${wedgeLabel.toLowerCase()} listings in ${cityName} — check back in 2 weeks. Browse other cities below.`}
+              </p>
+            </div>
+            <Link
+              href={`/search?city=${city}&tag=${wedge}`}
+              className="inline-flex items-center gap-1 text-sm font-semibold text-[var(--color-brand-700)] hover:underline"
+            >
+              Show all {wedgeLabel.toLowerCase()} listings
+              <ArrowUpRight size={14} aria-hidden="true" />
+            </Link>
+          </div>
+
+          <ListingGrid
+            listings={listingsToShow}
+            columns={3}
+            headingLevel={3}
+            emptyMessage={`We're verifying ${wedgeLabel.toLowerCase()} listings in ${cityName} — check back in 2 weeks, or be the first to list yours.`}
+            emptyCtaHref="/owner/signup"
+            emptyCtaLabel={`List a ${wedgeLabel.toLowerCase()} property`}
+          />
         </Container>
       </section>
 

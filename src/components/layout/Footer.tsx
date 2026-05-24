@@ -66,6 +66,8 @@ const cols = [
       { href: "/pg-in-chennai", label: "PG in Chennai" },
       { href: "/pg-in-trivandrum", label: "PG in Trivandrum" },
       { href: "/pg-in-calicut", label: "PG in Calicut" },
+      { href: "/pg-in-trichur", label: "PG in Trichur" },
+      { href: "/cities", label: "View all cities" },
     ],
   },
   {

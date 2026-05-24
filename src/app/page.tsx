@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Hero } from "@/components/marketing/Hero";
 import { FeaturedListings } from "@/components/marketing/FeaturedListings";
+import { BrowseCategories } from "@/components/marketing/BrowseCategories";
 import { StatsStrip } from "@/components/marketing/StatsStrip";
 import { HowItWorks } from "@/components/marketing/HowItWorks";
 import { WedgeFeatures } from "@/components/marketing/WedgeFeatures";
@@ -42,6 +43,7 @@ export default function HomePage() {
       />
       <Hero />
       <FeaturedListings />
+      <BrowseCategories />
       <StatsStrip />
       <HowItWorks />
       <WedgeFeatures />

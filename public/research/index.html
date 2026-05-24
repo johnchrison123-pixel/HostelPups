@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="robots" content="noindex, nofollow" />
+<title>HostelPups Competitive Intelligence — Internal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#FFFCF5;
+    --ink:#1A1A1A;
+    --muted:#5A5550;
+    --line:#EAE3D2;
+    --yellow:#F0B429;
+    --yellow-soft:#FFF1C7;
+    --green:#1E7F4A;
+    --red:#B0322B;
+    --blue:#1F4FB6;
+    --purple:#5B2D8C;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:'Plus Jakarta Sans',system-ui,-apple-system,Segoe UI,sans-serif;-webkit-font-smoothing:antialiased;line-height:1.55}
+  body{font-size:17px}
+  .wrap{max-width:780px;margin:0 auto;padding:24px 18px 80px}
+  header.top{padding:18px 0 8px;border-bottom:2px solid var(--ink)}
+  .kicker{display:inline-block;background:var(--ink);color:var(--yellow);padding:6px 10px;border-radius:6px;font-weight:700;font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+  h1{font-size:32px;line-height:1.1;margin:14px 0 6px;font-weight:800;letter-spacing:-.02em}
+  .sub{color:var(--muted);font-size:14px;font-weight:500}
+  h2{font-size:24px;margin:40px 0 14px;font-weight:800;letter-spacing:-.01em;line-height:1.2}
+  h2 .num{display:inline-block;background:var(--yellow);color:var(--ink);width:30px;height:30px;border-radius:8px;text-align:center;line-height:30px;font-size:15px;font-weight:800;margin-right:10px;vertical-align:1px}
+  h3{font-size:18px;margin:22px 0 8px;font-weight:700}
+  p{margin:0 0 12px}
+  a{color:var(--blue);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px}
+  ul,ol{margin:0 0 16px;padding-left:22px}
+  li{margin:6px 0}
+  blockquote{margin:14px 0;padding:12px 16px;background:var(--yellow-soft);border-left:4px solid var(--yellow);border-radius:0 8px 8px 0;font-style:italic;color:var(--ink)}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#F5EFE0;padding:2px 5px;border-radius:4px;font-size:.92em}
+  /* badges */
+  .badge{display:inline-block;font-size:11px;font-weight:700;padding:3px 8px;border-radius:99px;letter-spacing:.04em;text-transform:uppercase;margin:2px 4px 2px 0;vertical-align:middle}
+  .b-pg{background:#FFE2BC;color:#7A3E00}
+  .b-mkt{background:#D8E4FB;color:#1F3F8A}
+  .b-glob{background:#D9F0E2;color:#0E5A30}
+  .b-dead{background:#F4D5D2;color:#7A1B16}
+  .b-small{background:#E9DFF5;color:#43217A}
+  .b-us{background:var(--ink);color:var(--yellow)}
+  /* exec summary card */
+  .summary{background:var(--ink);color:#FFF8DF;border-radius:14px;padding:20px 18px;margin:16px 0 28px}
+  .summary h2{color:var(--yellow);margin:0 0 10px}
+  .summary p{color:#FFF8DF;font-size:16px}
+  .summary .num{background:var(--yellow);color:var(--ink)}
+  /* competitor cards */
+  details.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:0;margin:12px 0;overflow:hidden}
+  details.card[open]{box-shadow:0 4px 16px rgba(0,0,0,.05)}
+  details.card>summary{list-style:none;cursor:pointer;padding:16px 18px;display:flex;align-items:center;gap:14px;min-height:64px;user-select:none}
+  details.card>summary::-webkit-details-marker{display:none}
+  details.card>summary::after{content:"+";margin-left:auto;font-size:28px;font-weight:300;color:var(--muted);line-height:1;width:32px;height:32px;display:flex;align-items:center;justify-content:center}
+  details.card[open]>summary::after{content:"\2212"}
+  .logo{flex:0 0 44px;width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:20px;font-family:'Plus Jakarta Sans'}
+  .co-name{font-weight:800;font-size:17px;display:block}
+  .co-tag{font-size:12px;color:var(--muted);font-weight:500;margin-top:1px}
+  .card-body{padding:0 18px 18px;border-top:1px solid var(--line);margin-top:0}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0 16px}
+  .stat{background:var(--yellow-soft);border-radius:8px;padding:10px 12px}
+  .stat .k{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+  .stat .v{font-size:15px;font-weight:700;margin-top:2px;line-height:1.2}
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}
+  .pair .col h4{margin:6px 0 4px;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:800}
+  .pair ul{padding-left:18px;margin:0}
+  .pair li{font-size:14px;line-height:1.45;margin:4px 0}
+  .strength li::marker{color:var(--green)}
+  .weak li::marker{color:var(--red)}
+  /* table */
+  .tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:#fff;margin:14px -6px 22px}
+  table{border-collapse:collapse;width:100%;font-size:13px;min-width:560px}
+  thead{background:var(--ink);color:var(--yellow)}
+  th,td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+  tbody tr:nth-child(even){background:#FBF6E8}
+  tbody tr.us{background:var(--yellow);font-weight:700}
+  /* recommendation grids */
+  .rec-grid{display:grid;gap:12px;margin:14px 0 22px}
+  .rec{background:#fff;border:1px solid var(--line);border-left:4px solid var(--yellow);border-radius:10px;padding:12px 14px}
+  .rec.good{border-left-color:var(--green)}
+  .rec.bad{border-left-color:var(--red)}
+  .rec h4{margin:0 0 4px;font-size:15px}
+  .rec p{margin:0;color:var(--muted);font-size:14px}
+  /* funding reality */
+  .reality{background:linear-gradient(180deg,var(--yellow-soft),#fff);border:1px solid var(--yellow);border-radius:14px;padding:18px;margin:14px 0}
+  .reality .big{font-size:34px;font-weight:800;color:var(--ink);line-height:1;margin:6px 0}
+  .reality .small{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+  .vs{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;margin:14px 0 6px}
+  .vs .pill{padding:8px 10px;background:#fff;border:1px solid var(--line);border-radius:10px;text-align:center}
+  .vs .vsep{font-weight:800;color:var(--muted)}
+  /* sources */
+  .sources{font-size:13px;color:var(--muted)}
+  .sources li{margin:4px 0;word-break:break-all}
+  /* footer note */
+  .end{margin-top:40px;padding:16px;background:var(--ink);color:#FFF8DF;border-radius:12px;text-align:center;font-size:14px}
+  .end strong{color:var(--yellow)}
+  hr.dash{border:none;border-top:1px dashed var(--line);margin:24px 0}
+  /* responsive */
+  @media (min-width:700px){
+    body{font-size:17px}
+    .wrap{padding:32px 24px 100px}
+    h1{font-size:40px}
+    .stats{grid-template-columns:repeat(4,1fr)}
+  }
+  @media (max-width:480px){
+    .pair{grid-template-columns:1fr}
+    .stats{grid-template-columns:1fr 1fr}
+    .vs{grid-template-columns:1fr;text-align:center}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <span class="kicker">Internal &middot; Do not share</span>
+  <h1>HostelPups Competitive Intelligence</h1>
+  <div class="sub">Market research &middot; Indian PG / hostel / co-living &middot; May 2026</div>
+</header>
+
+<!-- 2. EXEC SUMMARY -->
+<section class="summary">
+  <h2><span class="num">1</span>Executive Summary</h2>
+  <p>India's organised co-living and PG segment is now a real market: Colliers projects inventory to grow from ~0.3M beds today to ~1M beds by 2030, and demand is already at <strong>6.6M beds</strong>. But the players you'd assume "own" this market are bleeding cash. Stanza Living just took a 28% <em>down round</em> at $320M valuation despite ₹824Cr revenue. Zolo sold off its student-housing unit. NestAway sold for 5% of its peak. Even the unicorn NoBroker is monetising via plans and ancillary services, not the listing.</p>
+  <p>The "managed brand" co-living thesis (Stanza, Zolo, Colive) requires balance-sheet money &mdash; lease whole buildings, run them as hotels. HostelPups is a marketplace, which is structurally lighter. The genuinely under-served slice is the <strong>verified, no-broker, niche-friendly</strong> property listing &mdash; couple-friendly, pet-friendly, near-college, with KYC trust &mdash; which neither the brand-operators nor the giant horizontals (Magicbricks, 99acres, Housing) execute well at the PG segment.</p>
+  <p><strong>HostelPups' wedge</strong> is real: niche tags + KYC-video verification + zero-brokerage + South India depth. The competitive moat will be <em>SEO long-tail</em> (pg-in-X for Y) and <em>owner trust</em> (the one thing all platforms struggle with). Capital reality: most competitors raised ₹100Cr+. The bootstrapped playbook is content + niche + community.</p>
+</section>
+
+<!-- 3. BATTLEFIELD -->
+<section>
+  <h2><span class="num">2</span>The Indian PG / Co-Living Battlefield</h2>
+  <p>Three distinct competitor classes &mdash; they barely overlap, but they all compete for the same renter's attention.</p>
+
+  <h3>Class A &mdash; Branded co-living operators <span class="badge b-pg">Operator</span></h3>
+  <p>Stanza Living, Zolo, Colive, OYO Life, Settl, Your-Space. They lease/manage entire buildings and operate them under their brand. Capex-heavy, full-stack. <strong>Average ticket:</strong> ₹8&ndash;25K/month all-inclusive. <strong>Scale:</strong> Stanza claims 70K+ beds across 15 cities; Zolo across 10 cities; Colive concentrated in Bengaluru. Margins are thin &mdash; "the cost of securing prime assets often offsets potential gains" (Aurum PropTech). They are <em>not</em> marketplaces; they are competitors for the renter's dollar but not for owners.</p>
+
+  <h3>Class B &mdash; Horizontal property marketplaces <span class="badge b-mkt">Marketplace</span></h3>
+  <p>NoBroker, Magicbricks, 99acres, Housing.com, JustDial, Sulekha. They sell flats/villas/PGs through the same SKU page. PG is a side tab &mdash; never the main brand promise. NoBroker is closest in spirit (zero-brokerage) but is busy monetising packers, painters, Pay 1&ndash;2% fees, and dedicated relationship managers (~40% of revenue from subscription/PA services).</p>
+
+  <h3>Class C &mdash; Hostel-only platforms <span class="badge b-glob">Global</span></h3>
+  <p>Hostelworld is the global gold standard &mdash; €93.8M revenue, 12M+ active users, 17,500 hostels in 179 countries. Their <em>"Meet your people"</em> social pivot (Social Pass, city chats, Linkups) is the most copyable UX in the entire industry. In India, the equivalent niche is empty &mdash; the small FindMyHostel.in is the closest peer and has roughly 1,400 listings concentrated in Kerala.</p>
+
+  <blockquote>"India's co-living market: Rs 40 billion today, growing 5&times; to Rs 200 billion by 2030. Inventory 0.3M &rarr; 1M beds. Penetration 5% &rarr; 10%+." &mdash; <a href="https://www.colliers.com/en-in/news/press-release-coliving-segment-in-india">Colliers India, May 2025</a></blockquote>
+</section>
+
+<!-- 4. DEEP DIVES -->
+<section>
+  <h2><span class="num">3</span>Competitor Deep Dives</h2>
+
+  <!-- Stanza Living -->
+  <details class="card">
+    <summary>
+      <span class="logo" style="background:#E91E63">S</span>
+      <span><span class="co-name">Stanza Living <span class="badge b-pg">Branded co-living</span></span><span class="co-tag">Your second home in a new city</span></span>
+    </summary>
+    <div class="card-body">
+      <div class="stats">
+        <div class="stat"><div class="k">Funding</div><div class="v">$231M / 12 rounds</div></div>
+        <div class="stat"><div class="k">Valuation</div><div class="v">~$320M (Nov 2025, down round)</div></div>
+        <div class="stat"><div class="k">Revenue FY25</div><div class="v">₹824 Cr</div></div>
+        <div class="stat"><div class="k">Scale</div><div class="v">70K beds / 450 residences / 15+ cities</div></div>
+      </div>
+      <p><strong>Model:</strong> Lease + operate full buildings, charge residents monthly rent that bundles food/Wi-Fi/housekeeping/laundry. Tiered packages by room type. Cross-sells upgraded meal plans, premium internet. No "list your property" funnel &mdash; this is hotels, not a marketplace.</p>
+      <p><strong>Pricing:</strong> Renters pay ₹8K&ndash;25K/month all-in. Owners (rare partnership model) negotiate long lease.</p>
+      <div class="pair">
+        <div class="col strength">
+          <h4>What works</h4>
+          <ul>
+            <li>"No brokerage" copy on homepage (we should match)</li>
+            <li>Mobile app handles meals, tickets, electricity tracking</li>
+            <li>Three clear renter personas: student / professional / studio</li>
+            <li>City-level SEO landing pages for 15+ cities</li>
+            <li>KYC works without physical document collection</li>
+          </ul>
+        </div>
+        <div class="col weak">
+          <h4>Weaknesses we exploit</h4>
+          <ul>
+            <li>Hidden charges in reviews ("₹1200 operational fee")</li>
+            <li>"Click for callback" CTA &mdash; no instant pricing</li>
+            <li>Down round + capex burn = pulling back from cities</li>
+            <li>Operator, not marketplace &mdash; no inventory variety</li>
+            <li>No couple-friendly / pet-friendly tagging</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </details>
+
+  <!-- Zolo -->
+  <details class="card">
+    <summary>
+      <span class="logo" style="background:#1F4FB6">Z</span>
+      <span><span class="co-name">Zolo Stays <span class="badge b-pg">Branded co-living</span></span><span class="co-tag">Your Stay. Your Way.</span></span>
+    </summary>
+    <div class="card-body">
+      <div class="stats">
+        <div class="stat"><div class="k">Funding</div><div class="v">$113M / 12 rounds</div></div>
+        <div class="stat"><div class="k">Valuation</div><div class="v">~$180&ndash;192M</div></div>
+        <div class="stat"><div class="k">Revenue FY25</div><div class="v">₹346 Cr</div></div>
+        <div class="stat"><div class="k">Scale</div><div class="v">10+ cities; sold student-housing unit for $12.5M</div></div>
+      </div>
+      <p><strong>Model:</strong> Branded PG operator + booking platform. Charges renters; runs spaces. Recently divested student-housing arm to focus on professional co-living.</p>
+      <p><strong>Pricing:</strong> Renter rents not displayed publicly; "Find a Zolo near work/study" CTA pushes to map view first.</p>
+      <div class="pair">
+        <div class="col strength">
+          <h4>What works</h4>
+          <ul>
+            <li>"Rethink PGs. Think Zolo." &mdash; tight tagline</li>
+            <li>Filter by duration / room / meal plan upfront</li>
+            <li>Map-first search (we should test)</li>
+            <li>Backed by Nexus, Investcorp, IDFC PE</li>
+          </ul>
+        </div>
+        <div class="col weak">
+          <h4>Weaknesses we exploit</h4>
+          <ul>
+            <li>Pulled out of student housing &mdash; signal of unit-econ trouble</li>
+            <li>Generic blue palette, no distinct brand</li>
+            <li>No no-brokerage promise (it's an operator, not P2P)</li>
+            <li>Pricing opacity until you contact</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </details>
+
+  <!-- NoBroker -->
+  <details class="card">
+    <summary>
+      <span class="logo" style="background:#D62828">N</span>
+      <span><span class="co-name">NoBroker <span class="badge b-mkt">Property marketplace</span></span><span class="co-tag">World's Largest NoBrokerage Property Site</span></span>
+    </summary>
+    <div class="card-body">
+      <div class="stats">
+        <div class="stat"><div class="k">Funding</div><div class="v">$376M / 12 rounds (Unicorn)</div></div>
+        <div class="stat"><div class="k">Valuation</div><div class="v">~$1B (₹7,850 Cr)</div></div>
+        <div class="stat"><div class="k">Revenue</div><div class="v">$96.5M ARR (Dec 2024)</div></div>
+        <div class="stat"><div class="k">Scale</div><div class="v">30L+ customers/month, 150+ cities, 5,559 employees</div></div>
+      </div>
+      <p><strong>Model:</strong> Zero-brokerage P2P listing of buy/rent/PG, monetised through tenant + owner plans, plus Home Services (packers, painters, cleaning), and NoBroker Pay (1&ndash;2% fee on $1.2B+ annual rent payments).</p>
+      <p><strong>Pricing &mdash; renter:</strong> Free basic; ₹999/45 days for premium filters; Relax Plan ₹3,399 + GST; Super Money Back ₹10,999 + GST. <strong>Owner:</strong> Free listing + paid promotion plans.</p>
+      <div class="pair">
+        <div class="col strength">
+          <h4>What works</h4>
+          <ul>
+            <li>"₹130 Cr brokerage saved monthly" &mdash; killer trust signal</li>
+            <li>30 lakh monthly customer count displayed</li>
+            <li>Cross-sell to packers/painters/legal/loans = ARPU lift</li>
+            <li>NoBroker Pay locks in retention</li>
+            <li>Relationship Manager unlock as upsell, not gate</li>
+          </ul>
+        </div>
+        <div class="col weak">
+          <h4>Weaknesses we exploit</h4>
+          <ul>
+            <li>PG is buried under flats / villas / commercial</li>
+            <li>No video-KYC verification per listing</li>
+            <li>No couple-friendly / pet-friendly first-class tag</li>
+            <li>Owner spam complaints in forums</li>
+            <li>Brand fatigue &mdash; "another paid plan" perception</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </details>
+
+  <!-- Colive -->
+  <details class="card">
+    <summary>
+      <span class="logo" style="background:#E67E22">C</span>
+      <span><span class="co-name">Colive <span class="badge b-pg">Branded co-living</span></span><span class="co-tag">Smart, furnished, managed flexible homes</span></span>
+    </summary>
+    <div class="card-body">
+      <div class="stats">
+        <div class="stat"><div class="k">Funding</div><div class="v">$31.8M + $20M (Sept 2025, Bain)</div></div>
+        <div class="stat"><div class="k">Backer</div><div class="v">Salarpuria Sattva + Bain Capital ($100M JV)</div></div>
+        <div class="stat"><div class="k">Scale</div><div class="v">Bengaluru-focused; expanding pan-India</div></div>
+        <div class="stat"><div class="k">Plan</div><div class="v">8&ndash;10 flagship purpose-built developments</div></div>
+      </div>
+      <p><strong>Model:</strong> Pure operator. New PropCo JV with Bain ($100M) will <em>acquire land and build</em> &mdash; the most capex-heavy model in the segment.</p>
+      <div class="pair">
+        <div class="col strength">
+          <h4>What works</h4>
+          <ul>
+            <li>Deep developer ties via Sattva parent</li>
+            <li>Bengaluru #1 brand awareness</li>
+            <li>Bain JV gives long runway</li>
+          </ul>
+        </div>
+        <div class="col weak">
+          <h4>Weaknesses we exploit</h4>
+          <ul>
+            <li>Bengaluru-only mind-share &mdash; weak in Kerala/TN</li>
+            <li>Building from ground up = 2&ndash;3 yr time-to-bed</li>
+            <li>No marketplace breadth</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </details>
+
+  <!-- NestAway -->
+  <details class="card">
+    <summary>
+      <span class="logo" style="background:#5B2D8C">N</span>
+      <span><span class="co-name">NestAway <span class="badge b-dead">Acquired / pivoted</span></span><span class="co-tag">Cautionary tale: $225M valuation &rarr; $11M sale</span></span>
+    </summary>
+    <div class="card-body">
+      <div class="stats">
+        <div class="stat"><div class="k">Peak funding</div><div class="v">~$110M (Tiger, Sequoia, Goldman, IDG)</div></div>
+        <div class="stat"><div class="k">Exit</div><div class="v">$11M to Aurum PropTech (June 2023)</div></div>
+        <div class="stat"><div class="k">Now</div><div class="v">~10K rentable units inside Aurum group</div></div>
+        <div class="stat"><div class="k">Lesson</div><div class="v">Managed-rental model burnt cash; trust issues with owners</div></div>
+      </div>
+      <p>NestAway took flats from owners, refurbished, sub-let. Burned trust with both sides (owners alleged delayed payments; tenants alleged poor maintenance). Sold for <strong>5% of peak valuation</strong> &mdash; the canonical "don't do managed rental on a thin margin" case study. Now part of Aurum PropTech (rentals segment hit ARR ~₹500 Cr after PropTiger absorption in Sept 2025).</p>
+      <p class="sub"><strong>What HostelPups must avoid:</strong> taking inventory risk on your balance sheet. Be the matchmaker, not the landlord.</p>
+    </div>
+  </details>
+
+  <!-- Magicbricks -->
+  <details class="card">
+    <summary>
+      <span class="logo" style="background:#C0392B">M</span>
+      <span><span class="co-name">Magicbricks <span class="badge b-mkt">Property marketplace</span></span><span class="co-tag">Times Internet subsidiary</span></span>
+    </summary>
+    <div class="card-body">
+      <div class="stats">
+        <div class="stat"><div class="k">Revenue FY25</div><div class="v">₹332 Cr</div></div>
+        <div class="stat"><div class="k">Market share</div><div class="v">~40% of category traffic</div></div>
+        <div class="stat"><div class="k">Model</div><div class="v">Broker subscriptions + builder promo + featured listings</div></div>
+        <div class="stat"><div class="k">CEO ambition</div><div class="v">25&ndash;30% CAGR &mdash; "supermarket of real estate"</div></div>
+      </div>
+      <p><strong>Model:</strong> Listing fees free; brokers/builders pay for premium placement and lead access. PG is a low-effort tab inside a portal optimised for buy/sell.</p>
+      <p><strong>Weakness HostelPups exploits:</strong> their PG listings are largely broker-relisted; tenants get spam calls from 5+ brokers. Our zero-broker promise is a direct counter.</p>
+    </div>
+  </details>
+
+  <!-- 99acres -->
+  <details class="card">
+    <summary>
+      <span class="logo" style="background:#16A085">9</span>
+      <span><span class="co-name">99acres <span class="badge b-mkt">Property marketplace</span></span><span class="co-tag">Info Edge subsidiary</span></span>
+    </summary>
+    <div class="card-body">
+      <div class="stats">
+        <div class="stat"><div class="k">Parent revenue FY25</div><div class="v">₹2,650 Cr (Info Edge)</div></div>
+        <div class="stat"><div class="k">Q3 FY26 (Dec 25)</div><div class="v">₹760 Cr, up 13.8% YoY</div></div>
+        <div class="stat"><div class="k">Listings</div><div class="v">~62% paid (up from 59%)</div></div>
+        <div class="stat"><div class="k">Status</div><div class="v">Losses growing 4&times; YoY at this segment</div></div>
+      </div>
+      <p>Same model as Magicbricks &mdash; agent subscriptions, builder promotion. Currently <em>losing money</em> at the property arm despite parent strength. PG section is a long-tail SEO play, not a product priority. We can out-execute on UX in the PG slice.</p>
+    </div>
+  </details>
+
+  <!-- Housing.com -->
+  <details class="card">
+    <summary>
+      <span class="logo" style="background:#E74C3C">H</span>
+      <span><span class="co-name">Housing.com <span class="badge b-mkt">Property marketplace</span></span><span class="co-tag">REA Group (Australia)</span></span>
+    </summary>
+    <div class="card-body">
+      <div class="stats">
+        <div class="stat"><div class="k">Revenue FY25</div><div class="v">A$129M / ₹711 Cr (+25%)</div></div>
+        <div class="stat"><div class="k">App traffic</div><div class="v">+37% YoY, app sessions +143%</div></div>
+        <div class="stat"><div class="k">Listings</div><div class="v">+58% verified YoY</div></div>
+        <div class="stat"><div class="k">Recent move</div><div class="v">Divested PropTiger brokerage arm</div></div>
+      </div>
+      <p>Most aggressive app-first competitor. Expanded to 20 Tier-2 cities. <strong>Key signal:</strong> they divested brokerage to focus on listings &mdash; the same anti-broker direction we're betting on. They are the closest design template for a portal that takes verification seriously, though their PG vertical is again a side tab.</p>
+    </div>
+  </details>
+
+  <!-- OYO Life -->
+  <details class="card">
+    <summary>
+      <span class="logo" style="background:#EE2A24">O</span>
+      <span><span class="co-name">OYO Life <span class="badge b-pg">Branded co-living</span></span><span class="co-tag">Premium PG Living &mdash; Zero Hassle</span></span>
+    </summary>
+    <div class="card-body">
+      <div class="stats">
+        <div class="stat"><div class="k">Parent revenue FY25</div><div class="v">₹6,252.8 Cr (OYO group, +16%)</div></div>
+        <div class="stat"><div class="k">Rental income</div><div class="v">+77% YoY to ₹156.9 Cr (includes OYO Life)</div></div>
+        <div class="stat"><div class="k">Mind-share</div><div class="v">Low &mdash; eclipsed by hotel arm</div></div>
+        <div class="stat"><div class="k">Lessons</div><div class="v">OYO Living rebranded multiple times; volatility</div></div>
+      </div>
+      <p>Side-business inside OYO Hotels. Not a serious threat in any city outside Tier-1. The brand is bigger than the product. Their app is hotel-first; PG users are not a priority segment.</p>
+    </div>
+  </details>
+
+  <!-- Hostelworld -->
+  <details class="card">
+    <summary>
+      <span class="logo" style="background:#F38B24">H</span>
+      <span><span class="co-name">Hostelworld <span class="badge b-glob">Global &mdash; UX template</span></span><span class="co-tag">Meet your people. Book your bed. Join the chat.</span></span>
+    </summary>
+    <div class="card-body">
+      <div class="stats">
+        <div class="stat"><div class="k">Revenue FY25</div><div class="v">€93.8M (+2%); H2 +7%</div></div>
+        <div class="stat"><div class="k">Bookings</div><div class="v">7M / yr, +2% YoY</div></div>
+        <div class="stat"><div class="k">Active users</div><div class="v">12M+ annual</div></div>
+        <div class="stat"><div class="k">Scale</div><div class="v">17,500 hostels / 179 countries</div></div>
+      </div>
+      <p><strong>Model:</strong> Booking commission (typically 12&ndash;15% to hostel). Added <em>Social Pass</em> (Nov 2025) &mdash; a recurring subscription (1wk to 1yr) that unlocks city chats and travel community without a booking. 37% of Social Pass buyers are net-new to Hostelworld.</p>
+      <p><strong>Why this matters for HostelPups:</strong> the social/community layer is the single biggest UX differentiator in the global category. Indian PG renters are equally lonely (new to city, young, want to meet flatmates). A "find your future flatmate" or "near-college chat" channel inside HostelPups is genuinely defensible.</p>
+      <div class="pair">
+        <div class="col strength">
+          <h4>UX patterns to steal</h4>
+          <ul>
+            <li>"Meet your people" hero &mdash; emotional first, search second</li>
+            <li>Chat tab in bottom nav (you already have it)</li>
+            <li>Linkups (group plans for residents)</li>
+            <li>Traveler profile cards visible before booking</li>
+            <li>4.9 app rating prominently displayed</li>
+            <li>"Hoscars" gamified hostel award annually</li>
+          </ul>
+        </div>
+        <div class="col weak">
+          <h4>Their gaps in India</h4>
+          <ul>
+            <li>Zero India PG inventory &mdash; they only do backpacker hostels</li>
+            <li>USD pricing, foreign UI conventions</li>
+            <li>No long-stay model</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </details>
+
+  <!-- FindMyHostel -->
+  <details class="card">
+    <summary>
+      <span class="logo" style="background:#1E7F4A">F</span>
+      <span><span class="co-name">FindMyHostel.in <span class="badge b-small">Direct peer / Kerala</span></span><span class="co-tag">Find Verified Hostels Across India</span></span>
+    </summary>
+    <div class="card-body">
+      <div class="stats">
+        <div class="stat"><div class="k">Funding</div><div class="v">Unknown / bootstrapped</div></div>
+        <div class="stat"><div class="k">Listings</div><div class="v">~1,440 (heavy Kerala bias)</div></div>
+        <div class="stat"><div class="k">City mix</div><div class="v">Ernakulam 853, Trivandrum 190, Kozhikode 135, Hyderabad 84, Pune 78</div></div>
+        <div class="stat"><div class="k">Price range</div><div class="v">₹2,500&ndash;6,000/mo on visible listings</div></div>
+      </div>
+      <p><strong>This is the only structurally identical competitor in HostelPups' home market.</strong> Same model (marketplace, owner-listed, no brokerage implied), same geography (Kerala-first), even same naming pattern. "FineMeHostel" appears to be a misspelling &mdash; no such brand was found.</p>
+      <div class="pair">
+        <div class="col strength">
+          <h4>What they have</h4>
+          <ul>
+            <li>3&ndash;4 year head start in Kochi</li>
+            <li>~853 Ernakulam listings (we have ~500)</li>
+            <li>"Add your hostel" funnel visible</li>
+            <li>Gender filter prominent</li>
+          </ul>
+        </div>
+        <div class="col weak">
+          <h4>Where they're soft</h4>
+          <ul>
+            <li>No KYC video verification (we do)</li>
+            <li>No couple/pet-friendly first-class tags</li>
+            <li>Plain UX, no chat/community</li>
+            <li>No phone or email visible &mdash; trust gap</li>
+            <li>No app, web-only</li>
+            <li>SEO presence is weak &mdash; we can outrank them on long-tail by Q3</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </details>
+
+  <!-- Settl / others -->
+  <details class="card">
+    <summary>
+      <span class="logo" style="background:#7F5AF0">S</span>
+      <span><span class="co-name">Settl, Your-Space, Bunkmate, CoHo <span class="badge b-small">Smaller operators</span></span><span class="co-tag">Sub-scale</span></span>
+    </summary>
+    <div class="card-body">
+      <ul>
+        <li><strong>Settl.</strong> Founded 2020. $3.37M raised over 7 rounds incl. Gruhas. Tech-driven managed accommodation. South India presence.</li>
+        <li><strong>Your-Space.</strong> Premium student housing near top colleges &mdash; tiny footprint, niche.</li>
+        <li><strong>Bunkmate.</strong> Very small; no recent funding visible.</li>
+        <li><strong>CoHo.</strong> Raised $4M / 10 rounds. <em>No longer active.</em> Dead.</li>
+      </ul>
+      <p class="sub">None of these are an existential threat. They confirm the segment-graveyard pattern: <strong>capex-heavy operator models without scale die</strong>. HostelPups should be careful not to drift into being a "brand operator".</p>
+    </div>
+  </details>
+
+</section>
+
+<!-- 5. PRICING TABLE -->
+<section>
+  <h2><span class="num">4</span>Pricing Comparison</h2>
+  <p>Snapshot of how each platform monetises both sides. "Renter" = what a person looking for a room actually pays the platform. "Owner" = what a landlord/PG owner pays to be listed.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Platform</th><th>Renter pricing</th><th>Owner pricing</th><th>Take rate</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Stanza Living</strong></td><td>₹8&ndash;25K/mo rent (all-in)</td><td>Long lease (not marketplace)</td><td>100% of rent (operator)</td></tr>
+      <tr><td><strong>Zolo Stays</strong></td><td>~₹10&ndash;20K/mo</td><td>Long lease / mgmt</td><td>Operator margin</td></tr>
+      <tr><td><strong>Colive</strong></td><td>~₹10&ndash;22K/mo</td><td>Long lease / dev partnership</td><td>Operator margin</td></tr>
+      <tr><td><strong>NoBroker</strong></td><td>Free basic; ₹999/45d; ₹3,399 Relax; ₹10,999 Super</td><td>Free list + paid promote; RM upsell</td><td>Plans + 1&ndash;2% NoBroker Pay + ancillary</td></tr>
+      <tr><td><strong>Magicbricks</strong></td><td>Free browse</td><td>Free basic, paid Titanium tiers</td><td>Subscription + featured</td></tr>
+      <tr><td><strong>99acres</strong></td><td>Free browse</td><td>Free + paid listing packages</td><td>Subscription (~62% paid listings)</td></tr>
+      <tr><td><strong>Housing.com</strong></td><td>Free browse</td><td>Free + subscription tiers</td><td>Subscription + featured</td></tr>
+      <tr><td><strong>FindMyHostel.in</strong></td><td>Free browse + ₹2.5&ndash;6K/mo rent</td><td>Free "Add your hostel"</td><td>Unclear (likely free now)</td></tr>
+      <tr><td><strong>Hostelworld</strong> (global)</td><td>Free browse; Social Pass paid</td><td>Free listing; commission per booking</td><td>~12&ndash;15% per booking</td></tr>
+      <tr class="us"><td><strong>HostelPups <span class="badge b-us">us</span></strong></td><td>Free browse + chat; (future) premium filters</td><td>Free list + KYC video; promoted tiers later</td><td><strong>Zero brokerage</strong> + future thin take</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- 6. SEO TACTICS -->
+<section>
+  <h2><span class="num">5</span>SEO &amp; Acquisition Tactics</h2>
+  <h3>What works for the incumbents</h3>
+  <ul>
+    <li><strong>City + intent landing pages.</strong> Magicbricks, 99acres, Colive, Stanza all rank for <code>pg in bangalore</code>, <code>pg in chennai</code> via dedicated /pg-in-X URLs. Info Edge confirms 62% of 99acres listings are paid &mdash; the rest is SEO real estate.</li>
+    <li><strong>Locality-level pages.</strong> "PG in Koramangala", "PG in HSR Layout", "PG near WhiteField". Long tail wins. Stanza's blog has 1,000+ such posts.</li>
+    <li><strong>Sub-segment pages.</strong> "PG for Girls", "PG for Boys", "PG for Working Professionals". Each is its own ranking page.</li>
+    <li><strong>Tier-2 expansion content.</strong> Housing.com added 7 Tier-2 cities in H1 FY25; each generated content cluster.</li>
+    <li><strong>App download CTAs.</strong> Hostelworld pushes 4.9-rated app aggressively. Stanza app handles maintenance tickets, food, electricity.</li>
+    <li><strong>Trust numbers in hero.</strong> NoBroker: "₹130 Cr brokerage saved monthly". Stanza: "70,000+ beds". Always quantified.</li>
+  </ul>
+  <h3>What HostelPups should copy + improve</h3>
+  <ul>
+    <li>Build <code>/pg-in-&lt;city&gt;</code> AND <code>/pg-in-&lt;city&gt;/&lt;locality&gt;</code> AND <code>/&lt;niche&gt;-pg-in-&lt;city&gt;</code>. You already have the niche pages (bachelor, couple, pet) &mdash; matrix them with cities for ~100&ndash;200 landing pages launch.</li>
+    <li>Programmatic location pages near specific colleges/tech parks (already started: Rajagiri, CUSAT, NIT). Extend to "PG near WhiteField", "PG near Tidel Park".</li>
+    <li>Original review content on top PGs per city &mdash; Hostelworld-style ratings dashboard.</li>
+    <li>Open-data dashboard: average PG rent by locality, refreshed monthly &mdash; press-bait + backlinks.</li>
+  </ul>
+</section>
+
+<!-- 7. UX PATTERNS -->
+<section>
+  <h2><span class="num">6</span>UX Patterns to Steal</h2>
+  <h3>Search bar</h3>
+  <p><strong>Zolo's "Find a Zolo near work / study"</strong> &mdash; framed around <em>where you are going</em> not <em>where you want to live</em>. Cleaner mental model than a city dropdown.</p>
+  <h3>Trust signals</h3>
+  <p><strong>NoBroker's monthly counter</strong>: "₹130 Cr brokerage saved monthly · 30 Lakh+ customers connected monthly · 2 Lakh+ new listings monthly". Always a live-feeling number. HostelPups can mirror: <em>"₹X Cr brokerage avoided · Y verified PGs · Z renters housed"</em>.</p>
+  <h3>Verification UI</h3>
+  <p>None of the incumbents do a visible <strong>video-KYC badge per listing</strong>. We do. Make it a green-check pill on every card with a tap-to-see-the-call snippet. Single biggest visual differentiator.</p>
+  <h3>Listing card</h3>
+  <p>Best in class: Hostelworld &mdash; large photo, rating dot ("9.4 Awesome"), price, distance, top-3 amenity icons, "Free cancellation" pill. Magicbricks and 99acres cards are cluttered with builder branding. HostelPups should keep cards clean: <em>photo / niche-tag pills (couple-friendly, pet-friendly) / rent / KYC badge / distance / save</em>.</p>
+  <h3>Filter UX</h3>
+  <p>Most useful filter set across platforms: <code>price &middot; gender &middot; room type (private/shared) &middot; meals &middot; furnished &middot; deposit &middot; lock-in &middot; pets/couples &middot; nearby (college/office)</code>. Zolo's "meal subscription yes/no" is a smart toggle; copy it.</p>
+  <h3>Social / community</h3>
+  <p>Steal from Hostelworld: <strong>city-level chat channels</strong> (e.g., "New in Bangalore?" → instant chat with 100+ renters). Already on roadmap &mdash; promote it earlier.</p>
+  <h3>Pricing transparency</h3>
+  <p>Stanza and Zolo hide pricing behind "get a callback" &mdash; reviews flag hidden fees. <strong>Show all-in monthly cost on every card, including deposit and any platform fee.</strong> Use a simple chip: <code>₹8,500/mo &middot; ₹17,000 deposit &middot; no platform fee</code>.</p>
+</section>
+
+<!-- 8. WHAT HOSTELPUPS SHOULD DO -->
+<section>
+  <h2><span class="num">7</span>What HostelPups Should Do</h2>
+
+  <h3>5 must-have features (table stakes &mdash; competitors all have them)</h3>
+  <div class="rec-grid">
+    <div class="rec"><h4>1. City + locality SEO landing matrix</h4><p>~100&ndash;200 pages covering city &times; locality &times; niche. Highest-ROI bootstrap channel.</p></div>
+    <div class="rec"><h4>2. Map view on search results</h4><p>Zolo and Hostelworld both lead with map. Test side-by-side.</p></div>
+    <div class="rec"><h4>3. Strong photo standards on listings</h4><p>Minimum 5 photos, room + bath + common area + entrance + neighborhood. Reject listings without.</p></div>
+    <div class="rec"><h4>4. App with maintenance ticket flow</h4><p>Stanza's killer feature. Renters love it because PG complaints are #1 retention killer.</p></div>
+    <div class="rec"><h4>5. WhatsApp-native owner onboarding</h4><p>Indian PG owners do not check email. Onboard via WhatsApp Business; KYC video call there.</p></div>
+  </div>
+
+  <h3>5 differentiators HostelPups already has (defend &amp; amplify)</h3>
+  <div class="rec-grid">
+    <div class="rec good"><h4>1. Couple-friendly / Pet-friendly niche tags as first-class filters</h4><p>NO competitor surfaces these. Pet-friendly listings +87% YoY (Skift 2025) and the unmarried-couple market is huge and broker-discriminated. Pure white-space.</p></div>
+    <div class="rec good"><h4>2. KYC video-call per listing</h4><p>Single strongest trust gap in the category. Burn this into every card.</p></div>
+    <div class="rec good"><h4>3. Zero brokerage from day one (P2P, not operator)</h4><p>Capital-light. Won't follow NestAway off the cliff.</p></div>
+    <div class="rec good"><h4>4. South India / Kerala depth before pan-India</h4><p>FindMyHostel.in is the only peer here and is weak on UX. Win Kochi/Trivandrum/Calicut/Trichur before Bangalore.</p></div>
+    <div class="rec good"><h4>5. Near-college tags (Rajagiri, CUSAT, NIT, Christ, IIT)</h4><p>Student-housing demand is 12M beds vs 4M supply (AISHE). Highest intent, lowest CAC.</p></div>
+  </div>
+
+  <h3>3 things to AVOID (mistakes others made)</h3>
+  <div class="rec-grid">
+    <div class="rec bad"><h4>1. Don't take inventory risk</h4><p>NestAway took flats on its books and died. Stay marketplace. Never lease.</p></div>
+    <div class="rec bad"><h4>2. Don't hide pricing behind "callback"</h4><p>Stanza/Zolo do this; reviews complain. Show all-in rent + deposit on every card.</p></div>
+    <div class="rec bad"><h4>3. Don't monetise with broker-spam plans</h4><p>NoBroker is drifting into "another paid plan" territory. Our zero-broker promise is our brand. Monetise via owner promotion tiers + future light booking fee, never gate the basic search behind a paywall.</p></div>
+  </div>
+</section>
+
+<!-- 9. FUNDING REALITY -->
+<section>
+  <h2><span class="num">8</span>Funding Reality Check</h2>
+  <div class="reality">
+    <div class="vs">
+      <div class="pill"><div class="small">Stanza Living</div><div class="big">$231M</div></div>
+      <div class="vsep">vs</div>
+      <div class="pill"><div class="small">HostelPups today</div><div class="big">₹10L</div></div>
+    </div>
+    <p>That is a ~<strong>1,900&times;</strong> funding gap to one competitor. Add Zolo ($113M), NoBroker ($376M), Colive ($51M+), NestAway (sunk $110M+) and the asymmetry is stark.</p>
+    <p><strong>The good news:</strong> every single one of these is either (a) cash-burning, (b) down-rounding, or (c) sold for pennies. The "raise huge, lease buildings, brand it" thesis is broken. Bain-Sattva's new $100M JV is the last meaningful new capital flowing in.</p>
+    <h3 style="margin-top:14px">The bootstrapped playbook</h3>
+    <ol>
+      <li><strong>Geographic concentration.</strong> Win 4 Kerala cities completely before Bangalore. Density &gt; spread.</li>
+      <li><strong>SEO compounding.</strong> 100&ndash;200 long-tail pages this quarter. Compound for 18 months. Costs ~0.</li>
+      <li><strong>One niche we own.</strong> Couple-friendly. Buy <code>couple-friendly-pg.com</code>, write the definitive content. Become the noun.</li>
+      <li><strong>Owner-side referral loop.</strong> Each verified owner gets ₹500 per onboarded second owner. Org-grown supply.</li>
+      <li><strong>Community first, app later.</strong> Hostelworld's Social Pass conversion (37% new users) shows community pulls inventory. Open city WhatsApp groups today.</li>
+      <li><strong>Revenue from day 1.</strong> Skip the "free until scale" trap. ₹999 owner-promotion tier from launch. Even ₹10L MRR is more runway than another seed round at 0% revenue.</li>
+    </ol>
+    <p class="sub">Capital-light marketplace + niche wedge + SEO compounding has historically beaten brand-operator capex in property tech (see Trulia vs early Zillow, Compass vs Redfin). The category is not won by who raised most, it's won by who has the cleanest unit economics when the cash runs out.</p>
+  </div>
+</section>
+
+<!-- 10. SOURCES -->
+<section>
+  <h2><span class="num">9</span>Sources</h2>
+  <ol class="sources">
+    <li><a href="https://tracxn.com/d/companies/stanza-living/__kWY4DCc2EQL1X_uCfkhz96oSo3Gs4pf629YmNnuO5-4">Tracxn &mdash; Stanza Living profile</a></li>
+    <li><a href="https://entrackr.com/exclusive/exclusive-stanza-living-to-raises-32-mn-from-accel-motilal-oswal-in-down-round-10597776">Entrackr &mdash; Stanza Living $32M down round (Nov 2025)</a></li>
+    <li><a href="https://thekredible.com/company/stanza-living/financials">TheKredible &mdash; Stanza Living financials FY25</a></li>
+    <li><a href="https://www.rprealtyplus.com/article/stanza-living-raises-32m-to-scale-co-living-across-15-indian-cities-122472.html">RP Realty Plus &mdash; Stanza $32M Series E</a></li>
+    <li><a href="https://tracxn.com/d/companies/zolo/__RaaYazq7U3vY5QyArOn8P3p0LoNqtt7M7K4i4hyAYEA">Tracxn &mdash; Zolo Stays profile</a></li>
+    <li><a href="https://www.affluense.ai/company/zolostays-financials-ae4d14">Affluense &mdash; Zolo Stays financials</a></li>
+    <li><a href="https://www.cbinsights.com/company/nobroker/financials">CB Insights &mdash; NoBroker financials</a></li>
+    <li><a href="https://getlatka.com/companies/nobroker.in">GetLatka &mdash; NoBroker $96.5M ARR</a></li>
+    <li><a href="https://www.nobroker.in/tenant/plans">NoBroker &mdash; Tenant plans pricing</a></li>
+    <li><a href="https://startuptalky.com/nobroker-business-model/">StartupTalky &mdash; NoBroker business model breakdown</a></li>
+    <li><a href="https://indianstartupnews.com/funding/nestaway-got-acquired-by-aurum-proptech-for-11-million-dollar">IndianStartupNews &mdash; NestAway sold to Aurum for $11M</a></li>
+    <li><a href="https://dazeinfo.com/2023/06/03/nestaway-acquisition-fall-of-nestawayvaluation-11-million/">DazeInfo &mdash; Rise and fall of NestAway</a></li>
+    <li><a href="https://aimgroup.com/2025/07/25/aurum-proptech-q1-fy25-26-strong-rental-performance-proptiger-acquisition-completed/">AIM Group &mdash; Aurum PropTech Q1 FY26 / PropTiger acquisition</a></li>
+    <li><a href="https://www.business-standard.com/companies/start-ups/bain-sattva-launch-100m-co-living-platform-colive-raises-20m-125090501138_1.html">Business Standard &mdash; Bain/Sattva/Colive $100M JV (Sept 2025)</a></li>
+    <li><a href="https://www.colliers.com/en-in/news/press-release-coliving-segment-in-india">Colliers India &mdash; Co-living to hit 1M beds by 2030</a></li>
+    <li><a href="https://www.business-standard.com/industry/news/co-living-inventory-to-reach-1-million-beds-by-2030-colliers-report-125050800561_1.html">Business Standard &mdash; Colliers co-living report (May 2025)</a></li>
+    <li><a href="https://www.medianama.com/2025/09/223-india-20-oyo-fy25-revenue-rebrands/">MediaNama &mdash; OYO India FY25 revenue 20%</a></li>
+    <li><a href="https://www.outlookbusiness.com/corporate/revenue-should-record-25-30-cagr-in-the-next-five-years-want-to-be-supermarket-for-all-real-estate-needs-magicbricks-ceo">Outlook Business &mdash; Magicbricks CEO 25-30% CAGR</a></li>
+    <li><a href="https://aimgroup.com/2026/02/16/info-edge-q3-fy25-26-losses-at-real-estate-subsidiary-99acres-grow-fourfold-y-o-y/">AIM Group &mdash; 99acres losses 4&times; YoY Q3 FY26</a></li>
+    <li><a href="https://www.aurumproptech.in/pulse/media/rea-india-revenue-jumps-25-percent-to-711-cr-housing-com-scales">Aurum PropTech &mdash; REA India ₹711 Cr revenue</a></li>
+    <li><a href="https://www.geosquare.in/housingcom-parent-rea-india-reports-46-revenue-growth-in-h1-fy25-340500799704-news">GeoSquare &mdash; Housing.com 46% H1 FY25 growth</a></li>
+    <li><a href="https://www.investing.com/news/company-news/hostelworld-fy-2025-slides-revenue-rises-2-social-platform-gains-traction-93CH-4581913">Investing.com &mdash; Hostelworld FY25 €93.8M revenue</a></li>
+    <li><a href="https://www.hostelworld.com/socialpass">Hostelworld &mdash; Social Pass</a></li>
+    <li><a href="https://findmyhostel.in/">Find My Hostel &mdash; direct peer site</a></li>
+    <li><a href="https://www.thesettl.com/">Settl &mdash; co-living competitor</a></li>
+    <li><a href="https://tracxn.com/d/companies/settl/__2NfbOYLtb5TjJfUNZ3QPX3vHFHdwD-31IyadhbMiJAs">Tracxn &mdash; Settl profile</a></li>
+    <li><a href="https://tracxn.com/d/companies/coho/__KmbuHJtRepslqjzzt9MchaaKgiX8QiM1GzjzvLZ_vUI">Tracxn &mdash; CoHo (defunct)</a></li>
+    <li><a href="https://skift.com/2025/10/29/india-catches-on-to-another-trend-travelers-now-move-with-pets-in-tow/">Skift &mdash; Pet-friendly listings +87% YoY (India)</a></li>
+    <li><a href="https://www.aurumproptech.in/pulse/media/co-living-india-why-operational-execution-beats-capital-investment">Aurum PropTech &mdash; Co-living operator economics analysis</a></li>
+    <li><a href="https://www.nobroker.in/blog/nobroker-super-relax-plan-review/">NoBroker &mdash; Super Relax Plan review</a></li>
+    <li><a href="https://www.stanzaliving.com/blog/how-much-does-pg-cost-in-india-average-rent-explained">Stanza Living &mdash; PG cost benchmarks</a></li>
+    <li><a href="https://www.colive.com/blog/how-much-does-a-pg-in-bangalore-really-cost/">Colive &mdash; PG pricing in Bangalore</a></li>
+  </ol>
+</section>
+
+<div class="end">
+  Prepared for the founder. <strong>Read on phone &mdash; act on laptop.</strong>
+  <br><span style="opacity:.7">v1 &middot; May 2026</span>
+</div>
+
+</div>
+</body>
+</html>

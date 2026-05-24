@@ -26,6 +26,7 @@ These rules override default Claude behavior. Read before every task.
 | 2026-05-21 | "give me clarification on Google Search Console + GA4 setup, and on npm run dev visual design feedback step" |
 | 2026-05-21 | "CANT YOU MAKE IT IN VERCEL AND GITHUB ADD?" — push project to GitHub + deploy to Vercel for live preview |
 | 2026-05-21 | GitHub repo URL provided: https://github.com/johnchrison123-pixel/HostelPups — push code + link Vercel for auto-deploys |
+| 2026-05-21 | /loop — Research competitors (FindMyHostel, FineMeHostel, etc.) globally. Get inspired. Redesign landing + login. Run parallel agents. Second parallel agent: deep research + HTML report viewable on phone. Stop when done, wait for next command. |
 
 *New rule: append every future instruction to this table.*
 

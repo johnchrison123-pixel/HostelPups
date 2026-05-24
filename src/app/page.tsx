@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import { Hero } from "@/components/marketing/Hero";
+import { FeaturedListings } from "@/components/marketing/FeaturedListings";
+import { StatsStrip } from "@/components/marketing/StatsStrip";
 import { HowItWorks } from "@/components/marketing/HowItWorks";
 import { WedgeFeatures } from "@/components/marketing/WedgeFeatures";
 import { CityGrid } from "@/components/marketing/CityGrid";
+import { Testimonials } from "@/components/marketing/Testimonials";
 import { OwnerCTA } from "@/components/marketing/OwnerCTA";
 import { PricingSection } from "@/components/marketing/PricingSection";
 import { FaqSection } from "@/components/marketing/FaqSection";
@@ -38,9 +41,12 @@ export default function HomePage() {
         }}
       />
       <Hero />
+      <FeaturedListings />
+      <StatsStrip />
       <HowItWorks />
       <WedgeFeatures />
       <CityGrid />
+      <Testimonials />
       <PricingSection />
       <OwnerCTA />
       <FaqSection />

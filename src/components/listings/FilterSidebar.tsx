@@ -6,8 +6,7 @@ import {
   KERALA_CITIES,
   FULL_SERVICE_CITIES,
 } from "@/lib/site";
-import { getAllListings } from "@/lib/mockListings";
-import type { Listing, PropertyType, GenderPreference, WedgeTag } from "@/lib/types";
+import type { PropertyType, GenderPreference, WedgeTag } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 /**
@@ -25,6 +24,12 @@ export interface FilterParams {
 
 interface FilterSidebarProps {
   current: FilterParams;
+  /**
+   * Distinct areas for the currently-selected city. The parent server page
+   * is responsible for querying these (since this component used to derive
+   * them from mock data; now they come from the DB via search/page.tsx).
+   */
+  areas?: string[];
   /** Optional className for layout overrides (sticky/width). */
   className?: string;
   /** When true, render as a horizontal-stacked inline panel (used in mobile <details>). */
@@ -68,18 +73,6 @@ function buildHref(current: FilterParams, overrides: Partial<FilterParams>): str
   }
   const qs = sp.toString();
   return qs ? `/search?${qs}` : "/search";
-}
-
-/** Get all unique areas for a given city from mock listings. */
-function getAreasForCity(city: string): string[] {
-  const all: Listing[] = getAllListings();
-  const set = new Set<string>();
-  for (const l of all) {
-    if (l.city.toLowerCase() === city.toLowerCase() && l.area) {
-      set.add(l.area);
-    }
-  }
-  return Array.from(set).sort();
 }
 
 interface GroupProps {
@@ -156,7 +149,7 @@ function RadioRow({ href, label, isActive, dot }: RadioRowProps) {
   );
 }
 
-export function FilterSidebar({ current, className, inline = false }: FilterSidebarProps) {
+export function FilterSidebar({ current, areas: areasProp, className, inline = false }: FilterSidebarProps) {
   const hasFilters = Boolean(
     current.city ||
       current.area ||
@@ -165,7 +158,7 @@ export function FilterSidebar({ current, className, inline = false }: FilterSide
       current.tag,
   );
 
-  const areas = current.city ? getAreasForCity(current.city) : [];
+  const areas = current.city ? (areasProp ?? []) : [];
 
   return (
     <aside

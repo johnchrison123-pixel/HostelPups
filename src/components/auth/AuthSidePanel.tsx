@@ -64,7 +64,7 @@ export function AuthSidePanel({ flavor }: AuthSidePanelProps) {
         </h2>
         <p className="mt-4 text-base xl:text-lg text-[var(--color-ink)]/75 leading-relaxed">
           {isOwner
-            ? "Set up your listing in minutes. We bring serious renters — verified by ID + phone — straight to your inbox."
+            ? "Set up your listing in minutes. We bring serious renters — email-verified, ID-checked — straight to your inbox."
             : "Verified listings. Direct chat. No brokers. The way PG-hunting in India should have always been."}
         </p>
 

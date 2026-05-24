@@ -2,7 +2,7 @@ import * as React from "react";
 import Link from "next/link";
 import { Building2, Home, Heart, PawPrint, ArrowUpRight } from "lucide-react";
 import { Container } from "@/components/ui/Container";
-import { getAllListings, getListingsByWedge } from "@/lib/mockListings";
+import { createClient } from "@/lib/supabase/server";
 
 interface Category {
   title: string;
@@ -17,14 +17,37 @@ interface Category {
   iconText: string;
 }
 
-export function BrowseCategories() {
-  const all = getAllListings();
+export async function BrowseCategories() {
+  const supabase = await createClient();
 
-  // Real counts so the homepage looks alive even with mock data
-  const pgCount = all.filter((l) => l.type === "pg").length;
-  const hostelCount = all.filter((l) => l.type === "hostel").length;
-  const coupleCount = getListingsByWedge("couple").length;
-  const petCount = getListingsByWedge("pet").length;
+  // Run all four counts in parallel — none of them needs the others.
+  const [pgRes, hostelRes, coupleRes, petRes] = await Promise.all([
+    supabase
+      .from("listings")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "live")
+      .eq("type", "pg"),
+    supabase
+      .from("listings")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "live")
+      .eq("type", "hostel"),
+    supabase
+      .from("listings")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "live")
+      .contains("wedge_tags", ["couple"]),
+    supabase
+      .from("listings")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "live")
+      .contains("wedge_tags", ["pet"]),
+  ]);
+
+  const pgCount = pgRes.count ?? 0;
+  const hostelCount = hostelRes.count ?? 0;
+  const coupleCount = coupleRes.count ?? 0;
+  const petCount = petRes.count ?? 0;
 
   const CATEGORIES: Category[] = [
     {

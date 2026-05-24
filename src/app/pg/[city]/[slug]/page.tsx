@@ -34,26 +34,47 @@ import { ListingGrid } from "@/components/listings/ListingGrid";
 import { buildMetadata, breadcrumbSchema, lodgingSchema } from "@/lib/seo";
 import { CITY_NAMES, PROPERTY_TYPES, WEDGE_TAGS } from "@/lib/site";
 import {
-  getAllListings,
-  getListingBySlug,
-  getListingsByCity,
   getListingMinPrice,
   getListingGradient,
 } from "@/lib/mockListings";
-import { getOwnerById } from "@/lib/mockOwners";
+import { createClient } from "@/lib/supabase/server";
 import { formatPrice } from "@/lib/utils";
-import type { WedgeTag } from "@/lib/types";
+import type { Listing, WedgeTag, PropertyType, RoomType } from "@/lib/types";
 
 type Props = { params: Promise<{ city: string; slug: string }> };
 
+/**
+ * Owner data shape returned from the joined `owners:owner_id (...)` select.
+ *
+ * NOTE: `contact_phone` is intentionally NOT selected — it must never be sent
+ * to the public page (admin/paying-user-only). Anti-disintermediation rule.
+ */
+interface JoinedOwner {
+  id: string;
+  business_name: string;
+  has_verification_badge: boolean;
+  tier: "self_serve" | "full_service";
+}
+
 /* ============================================================
-   Metadata + static params (every mock slug pre-renders for SEO)
+   Metadata + static params (every live slug pre-renders for SEO)
    ============================================================ */
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { city, slug } = await params;
-  const listing = getListingBySlug(city, slug);
   const cityName = CITY_NAMES[city] ?? city;
+  const supabase = await createClient();
+
+  const { data: listing, error } = await supabase
+    .from("listings")
+    .select("title, description, area, type, wedge_tags, room_types(price_per_month)")
+    .eq("city", city)
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (error) {
+    console.error("generateMetadata listing query failed:", error.message);
+  }
 
   if (!listing) {
     // Title still constructed from slug so 404 page has useful metadata
@@ -65,27 +86,62 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title: `${title} — PG in ${cityName}`,
       description: `Listing details for ${title} in ${cityName}. KYC-verified PG, hostel, and rental options on HostelPups.`,
       path: `/pg/${city}/${slug}`,
+      noindex: true,
     });
   }
 
-  const minPrice = getListingMinPrice(listing);
+  const roomPrices = (listing.room_types ?? []) as Array<{ price_per_month: number }>;
+  const minPrice = roomPrices.length
+    ? Math.min(...roomPrices.map((rt) => Number(rt.price_per_month)))
+    : null;
   const priceCopy = minPrice !== null ? ` From ${formatPrice(minPrice)}/month.` : "";
+  const typeLabel = PROPERTY_TYPES[listing.type as PropertyType] ?? listing.type;
+  const wedgeTags = (listing.wedge_tags ?? []) as WedgeTag[];
+
   return buildMetadata({
-    title: `${listing.title} — ${PROPERTY_TYPES[listing.type]} in ${listing.area}, ${cityName}`,
-    description: `${listing.title} in ${listing.area}, ${cityName}.${priceCopy} ${listing.description}`.slice(0, 200),
-    path: `/pg/${city}/${listing.slug}`,
+    title: `${listing.title} — ${typeLabel} in ${listing.area}, ${cityName}`,
+    description: `${listing.title} in ${listing.area}, ${cityName}.${priceCopy} ${listing.description ?? ""}`.slice(0, 200),
+    path: `/pg/${city}/${slug}`,
     keywords: [
       `${listing.title}`,
       `PG in ${listing.area}`,
-      `${PROPERTY_TYPES[listing.type]} ${cityName}`,
-      ...listing.wedge_tags.map((t) => `${WEDGE_TAGS[t]} ${cityName}`),
+      `${typeLabel} ${cityName}`,
+      ...wedgeTags.map((t) => `${WEDGE_TAGS[t] ?? t} ${cityName}`),
     ],
   });
 }
 
-/** Pre-render every mock listing as static HTML for max SEO + speed */
-export function generateStaticParams() {
-  return getAllListings().map((l) => ({ city: l.city, slug: l.slug }));
+/**
+ * Pre-render every live listing as static HTML for max SEO + speed.
+ *
+ * Note: `generateStaticParams` runs at build time without an HTTP request, so
+ * we can't use the cookie-aware server client (cookies() throws here). Use a
+ * plain anon client instead — listings with status='live' are public via RLS,
+ * so anonymous access is sufficient.
+ */
+export async function generateStaticParams() {
+  const { createClient: createAnonClient } = await import("@supabase/supabase-js");
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseAnon) {
+    // Env not set at build time — fall back to empty static params so build
+    // doesn't break. Pages still render on-demand via fallback.
+    return [];
+  }
+  const supabase = createAnonClient(supabaseUrl, supabaseAnon, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data, error } = await supabase
+    .from("listings")
+    .select("city, slug")
+    .eq("status", "live");
+
+  if (error) {
+    console.error("generateStaticParams query failed:", error.message);
+    return [];
+  }
+
+  return (data ?? []).map((l) => ({ city: l.city as string, slug: l.slug as string }));
 }
 
 /* ============================================================
@@ -143,20 +199,59 @@ const GENDER_LABEL: Record<string, string> = {
 
 export default async function ListingPage({ params }: Props) {
   const { city, slug } = await params;
-  const listing = getListingBySlug(city, slug);
-  if (!listing) notFound();
+  const supabase = await createClient();
+
+  // Fetch the listing with relations
+  const { data: rawListing, error: listingError } = await supabase
+    .from("listings")
+    .select(
+      `*,
+       room_types (*),
+       photos:listing_photos (*),
+       owners:owner_id (
+         id,
+         business_name,
+         has_verification_badge,
+         tier
+       )`,
+    )
+    .eq("city", city)
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (listingError) {
+    console.error("ListingPage listing query failed:", listingError.message);
+  }
+  if (!rawListing) notFound();
+
+  const listing = rawListing as unknown as Listing & { owners?: JoinedOwner | null };
+  const owner: JoinedOwner | null = listing.owners ?? null;
 
   const cityName = CITY_NAMES[city] ?? city;
   const minPrice = getListingMinPrice(listing);
-  const owner = getOwnerById(listing.owner_id);
   const propertyTypeLabel = PROPERTY_TYPES[listing.type];
 
   // 3 sibling listings in the same city (excluding this one)
-  const siblings = getListingsByCity(city)
-    .filter((l) => l.id !== listing.id)
-    .slice(0, 3);
+  const { data: siblingRows, error: siblingsError } = await supabase
+    .from("listings")
+    .select("*, room_types(*), photos:listing_photos(*)")
+    .eq("city", city)
+    .eq("status", "live")
+    .neq("id", listing.id)
+    .order("is_verified", { ascending: false })
+    .order("updated_at", { ascending: false })
+    .limit(3);
+
+  if (siblingsError) {
+    console.error("ListingPage siblings query failed:", siblingsError.message);
+  }
+
+  const siblings = (siblingRows ?? []) as unknown as Listing[];
 
   const gradient = getListingGradient(listing.id);
+  const roomTypes: RoomType[] = (listing.room_types ?? []) as RoomType[];
+  const houseRules = listing.house_rules ?? [];
+  const wedgeTags = listing.wedge_tags ?? [];
 
   return (
     <>
@@ -263,7 +358,7 @@ export default async function ListingPage({ params }: Props) {
               <div className="mt-3 flex flex-wrap gap-2">
                 <Badge tone="brand">{propertyTypeLabel}</Badge>
                 <Badge>{GENDER_LABEL[listing.gender_pref] ?? listing.gender_pref}</Badge>
-                {listing.wedge_tags.map((t) => (
+                {wedgeTags.map((t) => (
                   <Badge
                     key={t}
                     tone={WEDGE_TONE_MAP[t]}
@@ -289,7 +384,7 @@ export default async function ListingPage({ params }: Props) {
 
               {/* Quick stats row */}
               <dl className="mt-5 grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
-                {listing.total_beds !== undefined && (
+                {listing.total_beds !== undefined && listing.total_beds !== null && (
                   <div>
                     <dt className="text-[var(--color-ink-subtle)] text-xs uppercase tracking-wider">Total beds</dt>
                     <dd className="font-semibold mt-0.5 flex items-center gap-1.5">
@@ -298,7 +393,7 @@ export default async function ListingPage({ params }: Props) {
                     </dd>
                   </div>
                 )}
-                {listing.total_vacancies !== undefined && (
+                {listing.total_vacancies !== undefined && listing.total_vacancies !== null && (
                   <div>
                     <dt className="text-[var(--color-ink-subtle)] text-xs uppercase tracking-wider">Vacancies</dt>
                     <dd className="font-semibold mt-0.5 flex items-center gap-1.5">
@@ -341,7 +436,7 @@ export default async function ListingPage({ params }: Props) {
             </section>
 
             {/* Room types */}
-            {listing.room_types && listing.room_types.length > 0 && (
+            {roomTypes.length > 0 && (
               <section
                 aria-labelledby="rooms-heading"
                 className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-6"
@@ -361,7 +456,7 @@ export default async function ListingPage({ params }: Props) {
                       </tr>
                     </thead>
                     <tbody>
-                      {listing.room_types.map((rt) => (
+                      {roomTypes.map((rt) => (
                         <tr key={rt.id} className="border-b border-[var(--color-border)] last:border-0">
                           <td className="py-3 pr-3 font-semibold">{rt.name}</td>
                           <td className="py-3 px-3">{rt.ac ? "Yes" : "No"}</td>
@@ -374,7 +469,7 @@ export default async function ListingPage({ params }: Props) {
                             )}
                           </td>
                           <td className="py-3 pl-3 text-right font-black">
-                            {formatPrice(rt.price_per_month)}
+                            {formatPrice(Number(rt.price_per_month))}
                           </td>
                         </tr>
                       ))}
@@ -385,7 +480,7 @@ export default async function ListingPage({ params }: Props) {
             )}
 
             {/* House rules */}
-            {listing.house_rules.length > 0 && (
+            {houseRules.length > 0 && (
               <section
                 aria-labelledby="rules-heading"
                 className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-6"
@@ -394,7 +489,7 @@ export default async function ListingPage({ params }: Props) {
                   House rules
                 </h2>
                 <ul className="space-y-2" role="list">
-                  {listing.house_rules.map((r) => (
+                  {houseRules.map((r) => (
                     <li key={r} className="flex items-start gap-2 text-sm">
                       <CheckCircle2
                         size={16}
@@ -408,7 +503,7 @@ export default async function ListingPage({ params }: Props) {
               </section>
             )}
 
-            {/* Owner card */}
+            {/* Owner card — never expose contact_phone in public UI */}
             {owner && (
               <section
                 aria-labelledby="owner-heading"

@@ -3,10 +3,24 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { Container } from "@/components/ui/Container";
 import { ListingGrid } from "@/components/listings/ListingGrid";
-import { getFeaturedListings } from "@/lib/mockListings";
+import { createClient } from "@/lib/supabase/server";
+import type { Listing } from "@/lib/types";
 
-export function FeaturedListings() {
-  const featured = getFeaturedListings(8);
+export async function FeaturedListings() {
+  const supabase = await createClient();
+  const { data: rows, error } = await supabase
+    .from("listings")
+    .select("*, room_types(*), photos:listing_photos(*)")
+    .eq("status", "live")
+    .eq("is_verified", true)
+    .order("updated_at", { ascending: false })
+    .limit(8);
+
+  if (error) {
+    console.error("FeaturedListings supabase query failed:", error.message);
+  }
+
+  const featured = (rows ?? []) as unknown as Listing[];
 
   return (
     <section

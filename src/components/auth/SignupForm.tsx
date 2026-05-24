@@ -3,23 +3,22 @@
 import * as React from "react";
 import Link from "next/link";
 import {
-  Phone,
+  Mail,
   User,
   ArrowRight,
   CheckCircle2,
   Loader2,
-  KeyRound,
-  PartyPopper,
+  MailCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
-type Step = "details" | "verify" | "welcome";
+type Step = "details" | "check_email";
 
 const STEPS: { key: Step; label: string }[] = [
   { key: "details", label: "Details" },
-  { key: "verify", label: "Verify OTP" },
-  { key: "welcome", label: "Welcome" },
+  { key: "check_email", label: "Check Inbox" },
 ];
 
 function StepIndicator({ current }: { current: Step }) {
@@ -82,58 +81,68 @@ function StepIndicator({ current }: { current: Step }) {
   );
 }
 
+function isValidEmail(s: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
+}
+
 export function SignupForm() {
   const [step, setStep] = React.useState<Step>("details");
   const [name, setName] = React.useState("");
-  const [phone, setPhone] = React.useState("");
-  const [otp, setOtp] = React.useState("");
+  const [email, setEmail] = React.useState("");
   const [sending, setSending] = React.useState(false);
-  const [verifying, setVerifying] = React.useState(false);
+  const [resending, setResending] = React.useState(false);
+  const [resendOk, setResendOk] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   const nameValid = name.trim().length >= 2;
-  const phoneValid = /^[6-9]\d{9}$/.test(phone);
-  const otpValid = /^\d{6}$/.test(otp);
+  const emailValid = isValidEmail(email);
 
-  function handleSendOtp(e: React.FormEvent) {
+  async function sendMagicLink() {
+    const supabase = createClient();
+    // Name is captured into raw_user_meta_data → the on_auth_user_created
+    // DB trigger copies it onto the profiles row.
+    const { error: authError } = await supabase.auth.signInWithOtp({
+      email: email.trim().toLowerCase(),
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=/`,
+        data: { name: name.trim() },
+      },
+    });
+    return authError;
+  }
+
+  async function handleSendLink(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     if (!nameValid) {
       setError("Please enter your name (at least 2 characters).");
       return;
     }
-    if (!phoneValid) {
-      setError("Enter a 10-digit Indian mobile number starting with 6-9.");
+    if (!emailValid) {
+      setError("Please enter a valid email address.");
       return;
     }
     setSending(true);
-    // PENDING: wire to Supabase phone OTP — sb.auth.signInWithOtp({ phone: '+91' + phone })
-    window.setTimeout(() => {
-      setSending(false);
-      setStep("verify");
-    }, 700);
-  }
-
-  function handleVerifyOtp(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    if (!otpValid) {
-      setError("Enter the 6-digit code we just sent you.");
+    const authError = await sendMagicLink();
+    setSending(false);
+    if (authError) {
+      setError(authError.message);
       return;
     }
-    setVerifying(true);
-    // PENDING: wire to Supabase sb.auth.verifyOtp({ phone, token: otp, type: 'sms' })
-    // then INSERT into profiles { name, phone, role: 'user' }
-    window.setTimeout(() => {
-      setVerifying(false);
-      setStep("welcome");
-    }, 700);
+    setStep("check_email");
   }
 
-  function handleResend() {
+  async function handleResend() {
     setError(null);
-    setOtp("");
-    // PENDING: re-trigger Supabase OTP resend
+    setResendOk(false);
+    setResending(true);
+    const authError = await sendMagicLink();
+    setResending(false);
+    if (authError) {
+      setError(authError.message);
+      return;
+    }
+    setResendOk(true);
   }
 
   return (
@@ -151,28 +160,14 @@ export function SignupForm() {
             </p>
           </>
         )}
-        {step === "verify" && (
+        {step === "check_email" && (
           <>
             <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-[var(--color-ink)]">
-              Verify your phone
+              Check your inbox
             </h1>
             <p className="mt-2 text-[var(--color-ink-muted)]">
-              We sent a 6-digit code to{" "}
-              <span className="font-semibold text-[var(--color-ink)]">
-                +91 {phone}
-              </span>
-              .
-            </p>
-          </>
-        )}
-        {step === "welcome" && (
-          <>
-            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-[var(--color-ink)]">
-              Welcome to HostelPups
-            </h1>
-            <p className="mt-2 text-[var(--color-ink-muted)]">
-              {name ? `${name.split(" ")[0]}, you're ` : "You're "}all set. Start
-              browsing verified PGs.
+              We sent a magic link to{" "}
+              <span className="font-semibold text-[var(--color-ink)]">{email}</span>.
             </p>
           </>
         )}
@@ -189,7 +184,7 @@ export function SignupForm() {
         )}
 
         {step === "details" && (
-          <form onSubmit={handleSendOtp} className="space-y-5" noValidate>
+          <form onSubmit={handleSendLink} className="space-y-5" noValidate>
             <div>
               <label
                 htmlFor="signup-name"
@@ -217,41 +212,34 @@ export function SignupForm() {
 
             <div>
               <label
-                htmlFor="signup-phone"
+                htmlFor="signup-email"
                 className="block text-sm font-semibold mb-1.5 text-[var(--color-ink)]"
               >
-                Phone number
+                Email address
               </label>
               <div className="flex items-center gap-2 rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-bg)] px-4 h-12 transition-colors focus-within:border-[var(--color-brand-500)] focus-within:ring-2 focus-within:ring-[var(--color-brand-100)]">
-                <Phone
+                <Mail
                   size={16}
                   className="text-[var(--color-ink-subtle)]"
                   aria-hidden="true"
                 />
-                <span className="text-sm text-[var(--color-ink-muted)] font-medium">
-                  +91
-                </span>
                 <input
-                  id="signup-phone"
-                  type="tel"
-                  inputMode="numeric"
-                  pattern="[6-9][0-9]{9}"
-                  maxLength={10}
-                  autoComplete="tel-national"
-                  placeholder="9876543210"
-                  value={phone}
-                  onChange={(e) =>
-                    setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))
-                  }
+                  id="signup-email"
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="flex-1 bg-transparent outline-none text-base"
-                  aria-describedby="signup-phone-help"
+                  aria-describedby="signup-email-help"
                 />
               </div>
               <p
-                id="signup-phone-help"
+                id="signup-email-help"
                 className="mt-1.5 text-xs text-[var(--color-ink-subtle)]"
               >
-                We&apos;ll send a one-time code via SMS. Standard rates apply.
+                We&apos;ll email you a one-click sign-in link. No password needed.
               </p>
             </div>
 
@@ -260,16 +248,16 @@ export function SignupForm() {
               variant="cta"
               size="lg"
               fullWidth
-              disabled={sending || !nameValid || !phoneValid}
+              disabled={sending || !nameValid || !emailValid}
             >
               {sending ? (
                 <>
                   <Loader2 size={18} className="animate-spin" />
-                  Sending OTP…
+                  Sending link…
                 </>
               ) : (
                 <>
-                  Send OTP &amp; Sign Up
+                  Send magic link
                   <ArrowRight size={18} />
                 </>
               )}
@@ -295,98 +283,66 @@ export function SignupForm() {
           </form>
         )}
 
-        {step === "verify" && (
-          <form onSubmit={handleVerifyOtp} className="space-y-5" noValidate>
-            <div>
-              <label
-                htmlFor="signup-otp"
-                className="block text-sm font-semibold mb-1.5 text-[var(--color-ink)]"
-              >
-                6-digit verification code
-              </label>
-              <div className="flex items-center gap-2 rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-bg)] px-4 h-14 transition-colors focus-within:border-[var(--color-brand-500)] focus-within:ring-2 focus-within:ring-[var(--color-brand-100)]">
-                <KeyRound
-                  size={16}
-                  className="text-[var(--color-ink-subtle)]"
-                  aria-hidden="true"
-                />
-                <input
-                  id="signup-otp"
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]{6}"
-                  maxLength={6}
-                  autoComplete="one-time-code"
-                  placeholder="000000"
-                  value={otp}
-                  onChange={(e) =>
-                    setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
-                  }
-                  className="flex-1 bg-transparent outline-none text-xl tracking-[0.5em] font-bold text-center placeholder:font-medium placeholder:text-[var(--color-ink-subtle)]"
-                  autoFocus
-                />
-              </div>
-            </div>
-
-            <Button
-              type="submit"
-              variant="cta"
-              size="lg"
-              fullWidth
-              disabled={verifying || !otpValid}
-            >
-              {verifying ? (
-                <>
-                  <Loader2 size={18} className="animate-spin" />
-                  Verifying…
-                </>
-              ) : (
-                <>
-                  Verify &amp; create account
-                  <ArrowRight size={18} />
-                </>
-              )}
-            </Button>
-
-            <div className="flex items-center justify-between text-sm">
-              <button
-                type="button"
-                onClick={() => {
-                  setStep("details");
-                  setOtp("");
-                  setError(null);
-                }}
-                className="text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] hover:underline font-medium"
-              >
-                Change details
-              </button>
-              <button
-                type="button"
-                onClick={handleResend}
-                className="text-[var(--color-brand-700)] hover:underline font-semibold"
-              >
-                Resend code
-              </button>
-            </div>
-          </form>
-        )}
-
-        {step === "welcome" && (
-          <div className="text-center py-6">
-            <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 mb-4">
-              <PartyPopper
+        {step === "check_email" && (
+          <div className="text-center py-3 space-y-5">
+            <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
+              <MailCheck
                 size={32}
                 className="text-[var(--color-success)]"
                 aria-hidden="true"
               />
             </div>
-            <p className="text-[var(--color-ink-muted)] mb-5">
-              Loading verified listings for you...
-            </p>
-            <Button href="/search" variant="cta" fullWidth>
-              Start browsing PGs
-              <ArrowRight size={16} />
-            </Button>
+            <div className="space-y-1.5">
+              <p className="text-base font-semibold text-[var(--color-ink)]">
+                Click the link in your email to finish signing up.
+              </p>
+              <p className="text-sm text-[var(--color-ink-muted)]">
+                The link expires in 10 minutes. Check your spam folder if you
+                don&apos;t see it within a minute.
+              </p>
+            </div>
+
+            {resendOk && (
+              <div
+                role="status"
+                className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700"
+              >
+                New link sent. Check your inbox.
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="md"
+                fullWidth
+                onClick={() => {
+                  setStep("details");
+                  setResendOk(false);
+                  setError(null);
+                }}
+              >
+                Wrong email? Try again
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="md"
+                fullWidth
+                onClick={handleResend}
+                disabled={resending}
+              >
+                {resending ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Resending…
+                  </>
+                ) : (
+                  "Resend link"
+                )}
+              </Button>
+            </div>
           </div>
         )}
       </div>

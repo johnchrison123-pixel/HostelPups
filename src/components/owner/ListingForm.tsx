@@ -31,6 +31,11 @@ import {
 import type { GenderPreference, PropertyType, WedgeTag } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { PhotoUploader, type UploaderPhoto } from "./PhotoUploader";
+import {
+  createListing,
+  updateListing,
+  deleteListing,
+} from "@/lib/owner-actions";
 
 type Step = "basics" | "photos" | "rooms" | "amenities" | "tags";
 
@@ -109,10 +114,30 @@ function makeBlankRoom(idx: number): RoomRow {
   };
 }
 
+/**
+ * Shape accepted from the edit page — arrays for amenities/wedge_tags
+ * (since DB returns string[]), which we convert into Sets internally.
+ */
+export interface ListingFormInitial {
+  title?: string;
+  type?: PropertyType;
+  city?: string;
+  area?: string;
+  landmark?: string;
+  description?: string;
+  rooms?: RoomRow[];
+  amenities?: string[];
+  rules?: string;
+  gender_pref?: GenderPreference;
+  wedge_tags?: WedgeTag[];
+  /** Existing photos loaded from DB. Passed straight to PhotoUploader. */
+  existingPhotos?: UploaderPhoto[];
+}
+
 interface ListingFormProps {
   mode: "new" | "edit";
-  initial?: Partial<ListingFormData>;
-  /** When editing, the placeholder listing id (passed back to console.log) */
+  initial?: ListingFormInitial;
+  /** Only set on the edit screen; required for photo uploads & deletion. */
   listingId?: string;
 }
 
@@ -238,7 +263,7 @@ export function ListingForm({ mode, initial, listingId }: ListingFormProps) {
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function handleSave(intent: "draft" | "submit") {
+  async function handleSave(intent: "draft" | "submit") {
     setError(null);
     const err = validateBasics();
     if (err) {
@@ -247,24 +272,79 @@ export function ListingForm({ mode, initial, listingId }: ListingFormProps) {
       return;
     }
     setSubmitting(intent);
-    // PENDING: wire to Supabase insert into public.listings + room_types + listing_photos
-    // PENDING: photo uploads to Supabase Storage `listing-photos` bucket
-    // For now we just simulate
-    window.setTimeout(() => {
+
+    const status: "draft" | "pending_review" =
+      intent === "draft" ? "draft" : "pending_review";
+
+    // Build a server-action-ready payload from form state.
+    const payload = {
+      type: data.type,
+      title: data.title.trim(),
+      city: data.city,
+      area: data.area.trim(),
+      description: data.description.trim(),
+      landmark: data.landmark.trim() || undefined,
+      gender_pref: data.gender_pref,
+      wedge_tags: Array.from(data.wedge_tags),
+      amenities: Array.from(data.amenities),
+      // Split rules textarea into one rule per line
+      house_rules: data.rules
+        .split(/\r?\n/)
+        .map((r) => r.trim())
+        .filter(Boolean),
+      room_types: data.rooms
+        .filter((r) => r.name.trim().length > 0)
+        .map((r) => ({
+          name: r.name.trim(),
+          price_per_month: Number(r.price) || 0,
+          ac: !!r.ac,
+          occupancy: Number(r.occupancy) || 1,
+          vacancies: Number(r.vacancies) || 0,
+        })),
+      status,
+    };
+
+    try {
+      if (mode === "edit" && listingId) {
+        await updateListing(listingId, payload);
+        setSubmitting(null);
+        setShowSuccess(intent);
+      } else {
+        // createListing server action redirects on success — we won't reach
+        // the next line. If it throws (auth / RLS), the catch handles it.
+        await createListing(payload);
+        setSubmitting(null);
+        setShowSuccess(intent);
+      }
+    } catch (e) {
+      const message = (e as Error)?.message ?? String(e);
+      // Next.js redirect throws a special "NEXT_REDIRECT" — let it bubble so
+      // the browser navigates.
+      if (message.includes("NEXT_REDIRECT")) throw e;
       setSubmitting(null);
-      setShowSuccess(intent);
-      // eslint-disable-next-line no-console
-      console.log("[ListingForm] PENDING submit:", {
-        mode,
-        listingId,
-        intent,
-        data: {
-          ...data,
-          amenities: Array.from(data.amenities),
-          wedge_tags: Array.from(data.wedge_tags),
-        },
-      });
-    }, 700);
+      setError(message || "Something went wrong saving your listing.");
+    }
+  }
+
+  async function handleDelete() {
+    if (!listingId) return;
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(
+        "Delete this listing? This permanently removes all photos and room types.",
+      )
+    ) {
+      return;
+    }
+    try {
+      await deleteListing(listingId);
+      router.push("/owner/listings");
+    } catch (e) {
+      const message = (e as Error)?.message ?? String(e);
+      if (typeof window !== "undefined") {
+        window.alert(`Could not delete: ${message}`);
+      }
+    }
   }
 
   /* ---------------------------- */
@@ -287,9 +367,6 @@ export function ListingForm({ mode, initial, listingId }: ListingFormProps) {
           {showSuccess === "draft"
             ? "Come back any time to keep editing — only published listings count toward your active limit."
             : "Our team reviews new listings within 24 hours. You'll get an email when it goes live."}
-        </p>
-        <p className="mt-3 text-[10px] uppercase tracking-wider font-bold text-amber-700">
-          PENDING — Supabase write wiring lands in Phase 1B
         </p>
         <div className="mt-6 flex flex-wrap gap-2 justify-center">
           <Button href="/owner/listings" variant="cta">
@@ -479,7 +556,11 @@ export function ListingForm({ mode, initial, listingId }: ListingFormProps) {
                 area, and at least one shot per room type.
               </p>
             </header>
-            <PhotoUploader maxPhotos={10} />
+            <PhotoUploader
+              listingId={listingId}
+              maxPhotos={10}
+              initial={initial?.existingPhotos}
+            />
           </section>
         )}
 
@@ -865,19 +946,7 @@ export function ListingForm({ mode, initial, listingId }: ListingFormProps) {
             </Button>
             <button
               type="button"
-              onClick={() => {
-                if (
-                  typeof window !== "undefined" &&
-                  window.confirm(
-                    "Delete this listing? This can't be undone. (PENDING: real delete lands in Phase 1B)",
-                  )
-                ) {
-                  // PENDING: Supabase delete from public.listings (cascades to room_types + photos)
-                  // eslint-disable-next-line no-console
-                  console.log("[ListingForm] PENDING delete listing", listingId);
-                  router.push("/owner/listings");
-                }
-              }}
+              onClick={handleDelete}
               className="inline-flex items-center gap-1.5 rounded-full border border-red-300 bg-white px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-50 transition-colors"
             >
               <Trash2 size={14} aria-hidden="true" />

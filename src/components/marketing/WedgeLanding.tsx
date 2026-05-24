@@ -5,8 +5,8 @@ import { Container } from "@/components/ui/Container";
 import { Button } from "@/components/ui/Button";
 import { ListingGrid } from "@/components/listings/ListingGrid";
 import { CITY_NAMES } from "@/lib/site";
-import { getListingsByWedge } from "@/lib/mockListings";
-import type { WedgeTag } from "@/lib/types";
+import { createClient } from "@/lib/supabase/server";
+import type { Listing } from "@/lib/types";
 
 interface WedgeLandingProps {
   city: string;
@@ -19,7 +19,7 @@ interface WedgeLandingProps {
   badgeTone: "couple" | "bachelor" | "pet";
 }
 
-export function WedgeLanding({
+export async function WedgeLanding({
   city,
   wedge,
   wedgeLabel,
@@ -36,10 +36,43 @@ export function WedgeLanding({
     pet: "bg-teal-50 border-teal-200 text-teal-800",
   }[badgeTone];
 
-  // Listings tagged with this wedge in this city (fall back to nation-wide if none in city)
-  const wedgeAsTag = wedge as WedgeTag;
-  const cityWedgeListings = getListingsByWedge(wedgeAsTag, city, 6);
-  const nationalWedgeListings = getListingsByWedge(wedgeAsTag, undefined, 6);
+  const supabase = await createClient();
+
+  // Listings tagged with this wedge in this city
+  const { data: cityWedgeRows, error: cityWedgeError } = await supabase
+    .from("listings")
+    .select("*, room_types(*), photos:listing_photos(*)")
+    .eq("city", city)
+    .eq("status", "live")
+    .contains("wedge_tags", [wedge])
+    .order("is_verified", { ascending: false })
+    .order("updated_at", { ascending: false })
+    .limit(6);
+
+  if (cityWedgeError) {
+    console.error("WedgeLanding cityWedge query failed:", cityWedgeError.message);
+  }
+
+  const cityWedgeListings = (cityWedgeRows ?? []) as unknown as Listing[];
+
+  // National fallback (only fetch if city-specific empty — saves a roundtrip when not needed)
+  let nationalWedgeListings: Listing[] = [];
+  if (cityWedgeListings.length === 0) {
+    const { data: nationalRows, error: nationalError } = await supabase
+      .from("listings")
+      .select("*, room_types(*), photos:listing_photos(*)")
+      .eq("status", "live")
+      .contains("wedge_tags", [wedge])
+      .order("is_verified", { ascending: false })
+      .order("updated_at", { ascending: false })
+      .limit(6);
+
+    if (nationalError) {
+      console.error("WedgeLanding national query failed:", nationalError.message);
+    }
+    nationalWedgeListings = (nationalRows ?? []) as unknown as Listing[];
+  }
+
   const listingsToShow =
     cityWedgeListings.length > 0 ? cityWedgeListings : nationalWedgeListings;
   const hasCityListings = cityWedgeListings.length > 0;

@@ -1,36 +1,29 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-
 /**
- * Shared Supabase client. Import `sb` from this file — never call createClient
- * directly elsewhere in the codebase.
+ * Backward-compatibility re-export. Prefer the new split clients:
+ *   - Server components: `import { createClient } from "@/lib/supabase/server"`
+ *   - Client components: `import { createClient } from "@/lib/supabase/client"`
  *
- * Environment variables required (set in .env.local):
- *   NEXT_PUBLIC_SUPABASE_URL
- *   NEXT_PUBLIC_SUPABASE_ANON_KEY
- *
- * Schema is defined in Phase 1 — until then, this client is exported but
- * not used at runtime.
+ * The `sb` export below is kept for legacy code that imported it directly.
+ * It creates a browser client — DO NOT use from a server component or you'll
+ * get stale auth state. Migrate to the split clients above when refactoring.
  */
+export { createClient } from "./supabase/client";
+import { createClient } from "./supabase/client";
 
-const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://placeholder.supabase.co";
-const supabaseAnonKey =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "placeholder-anon-key";
-
-let _sb: SupabaseClient | null = null;
-
-export function getSupabase(): SupabaseClient {
-  if (!_sb) {
-    _sb = createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-      },
-    });
+// Legacy default browser client (lazy-initialized to avoid SSR issues)
+let _sb: ReturnType<typeof createClient> | null = null;
+function getSb() {
+  if (typeof window === "undefined") {
+    throw new Error(
+      "`sb` is the browser-only legacy export. Use createClient() from @/lib/supabase/server for server components.",
+    );
   }
+  if (!_sb) _sb = createClient();
   return _sb;
 }
 
-// Convenience export — matches RingIn's `sb` naming
-export const sb = getSupabase();
+export const sb = new Proxy({} as ReturnType<typeof createClient>, {
+  get(_t, p) {
+    return Reflect.get(getSb(), p);
+  },
+});

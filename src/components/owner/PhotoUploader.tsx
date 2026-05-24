@@ -1,45 +1,76 @@
 "use client";
 
 import * as React from "react";
-import { UploadCloud, X, Star, ArrowLeft, ArrowRight, ImagePlus } from "lucide-react";
+import {
+  UploadCloud,
+  X,
+  Star,
+  ArrowLeft,
+  ArrowRight,
+  ImagePlus,
+  Loader2,
+  AlertCircle,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 
 export interface UploaderPhoto {
-  /** local id only — Supabase Storage upload (PENDING Phase 1B) returns real urls */
+  /** Row id from listing_photos (DB-backed) or a local-only id for in-flight uploads */
   id: string;
-  /** object URL preview (created with URL.createObjectURL) — null when no file */
+  /** Storage path inside `listing-photos` bucket — used to delete the object */
+  path?: string;
+  /** Public URL — used as the <img src>; falls back to preview for in-flight uploads */
   preview: string | null;
-  /** display label, defaults to "Photo {n}" */
+  /** Display label */
   name: string;
+  /** True if this row is the cover photo */
+  isCover?: boolean;
+  /** Display order within the listing */
+  order?: number;
 }
 
 interface PhotoUploaderProps {
+  /** Required for actual uploads. If absent, the uploader shows a "save draft first" hint. */
+  listingId?: string;
   maxPhotos?: number;
-  /** Initial sample photos for the edit/new screens. Optional. */
   initial?: UploaderPhoto[];
-  /** Notified when the photo array changes — currently unused, ready for Phase 1B */
-  onChange?: (photos: UploaderPhoto[]) => void;
 }
 
+const BUCKET = "listing-photos";
+
 /**
- * Drag-and-drop / click photo uploader for owner listing form.
+ * Drag-and-drop / click photo uploader for owner listings.
  *
- * PENDING (Phase 1B): wire to Supabase Storage `listing-photos` bucket.
- * For now this only stores local previews in component state.
+ * Uploads go directly from the browser to Supabase Storage (`listing-photos`
+ * bucket) using the user's auth cookie. RLS scopes uploads to
+ *   <uid>/<listingId>/<random>.<ext>
+ * per `storage_policies` in supabase/migrations/0003_storage_setup.sql.
+ *
+ * After a successful upload we INSERT a `listing_photos` row pointing to the
+ * public URL. RLS on `listing_photos` requires that the listing's owner_id
+ * = auth.uid(), so the only way this insert succeeds is if the caller is
+ * the listing's owner.
+ *
+ * If `listingId` is missing (NEW listing not yet saved), uploads are disabled
+ * and we show a hint to save as draft first.
  */
 export function PhotoUploader({
+  listingId,
   maxPhotos = 10,
   initial = [],
-  onChange,
 }: PhotoUploaderProps) {
   const [photos, setPhotos] = React.useState<UploaderPhoto[]>(initial);
-  const [coverIdx, setCoverIdx] = React.useState(0);
+  const [uploading, setUploading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
   const [dragOver, setDragOver] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
+  const supabase = React.useMemo(() => createClient(), []);
 
+  const canUpload = !!listingId;
+  const canAddMore = photos.length < maxPhotos;
+
+  // Revoke any leftover blob URLs on unmount to avoid memory leaks
   React.useEffect(() => {
-    onChange?.(photos);
-    // Revoke object URLs on unmount to avoid memory leaks
     return () => {
       for (const p of photos) {
         if (p.preview && p.preview.startsWith("blob:")) {
@@ -52,108 +83,299 @@ export function PhotoUploader({
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [photos]);
+  }, []);
 
-  function handleFiles(files: FileList | null) {
+  async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
-    const remaining = Math.max(0, maxPhotos - photos.length);
-    const slice = Array.from(files).slice(0, remaining);
-    const next: UploaderPhoto[] = slice.map((f, i) => ({
-      id: `${Date.now()}_${i}`,
-      preview: URL.createObjectURL(f),
-      name: f.name,
-    }));
-    setPhotos((prev) => [...prev, ...next]);
+    if (!listingId) {
+      setError("Save your listing as a draft first, then upload photos.");
+      return;
+    }
+
+    setError(null);
+    setUploading(true);
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setError("You are signed out. Please log in again.");
+        setUploading(false);
+        return;
+      }
+
+      const remaining = Math.max(0, maxPhotos - photos.length);
+      const slice = Array.from(files).slice(0, remaining);
+
+      for (const file of slice) {
+        // Validate type + size client-side. Server policies are the source
+        // of truth, but failing fast here saves a round trip.
+        if (!/^image\/(jpe?g|png|webp)$/i.test(file.type)) {
+          setError(`"${file.name}" is not a JPG / PNG / WebP image — skipped.`);
+          continue;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+          setError(`"${file.name}" is over 5 MB — skipped.`);
+          continue;
+        }
+
+        const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+        const uniqueId =
+          globalThis.crypto?.randomUUID?.() ??
+          `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+        const path = `${user.id}/${listingId}/${uniqueId}.${ext}`;
+
+        const { error: upError } = await supabase.storage
+          .from(BUCKET)
+          .upload(path, file, { cacheControl: "3600", upsert: false });
+        if (upError) {
+          setError(`Upload failed: ${upError.message}`);
+          continue;
+        }
+
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from(BUCKET).getPublicUrl(path);
+
+        // First photo ever is auto-cover.
+        const isCover = photos.length === 0;
+        const order = photos.length;
+
+        const { data: row, error: dbError } = await supabase
+          .from("listing_photos")
+          .insert({
+            listing_id: listingId,
+            url: publicUrl,
+            display_order: order,
+            is_cover: isCover,
+          })
+          .select()
+          .single();
+
+        if (dbError) {
+          // Roll back the storage upload so we don't leak files.
+          await supabase.storage.from(BUCKET).remove([path]);
+          setError(`Couldn't save photo record: ${dbError.message}`);
+          continue;
+        }
+
+        setPhotos((prev) => [
+          ...prev,
+          {
+            id: row.id,
+            path,
+            preview: publicUrl,
+            name: file.name,
+            isCover,
+            order,
+          },
+        ]);
+      }
+    } finally {
+      setUploading(false);
+      // Allow uploading the same file again later (browser keeps last selection otherwise)
+      if (inputRef.current) inputRef.current.value = "";
+    }
   }
 
-  function removeAt(idx: number) {
-    setPhotos((prev) => {
-      const target = prev[idx];
-      if (target?.preview?.startsWith("blob:")) {
-        try {
-          URL.revokeObjectURL(target.preview);
-        } catch {
-          // ignore
+  async function removeAt(idx: number) {
+    if (!listingId) return;
+    const target = photos[idx];
+    if (!target) return;
+
+    setError(null);
+
+    // Optimistic remove
+    const snapshot = photos;
+    setPhotos((prev) => prev.filter((_, i) => i !== idx));
+
+    try {
+      // Delete the DB row (RLS scopes to the listing's owner)
+      const { error: dbError } = await supabase
+        .from("listing_photos")
+        .delete()
+        .eq("id", target.id);
+      if (dbError) throw dbError;
+
+      // Delete the storage object (best-effort — DB is source of truth)
+      if (target.path) {
+        await supabase.storage.from(BUCKET).remove([target.path]);
+      }
+
+      // If we deleted the cover, promote the new first photo
+      if (target.isCover) {
+        const replacement = snapshot.filter((_, i) => i !== idx)[0];
+        if (replacement) {
+          await supabase
+            .from("listing_photos")
+            .update({ is_cover: true })
+            .eq("id", replacement.id);
+          setPhotos((prev) =>
+            prev.map((p) => ({ ...p, isCover: p.id === replacement.id })),
+          );
         }
       }
-      const next = prev.filter((_, i) => i !== idx);
-      // Re-anchor cover
-      if (coverIdx >= next.length) setCoverIdx(Math.max(0, next.length - 1));
-      return next;
-    });
+    } catch (e) {
+      // Restore on failure
+      setPhotos(snapshot);
+      const msg = (e as Error).message;
+      setError(`Couldn't delete photo: ${msg}`);
+    }
   }
 
-  function reorder(idx: number, dir: -1 | 1) {
-    setPhotos((prev) => {
-      const targetIdx = idx + dir;
-      if (targetIdx < 0 || targetIdx >= prev.length) return prev;
-      const next = [...prev];
-      [next[idx], next[targetIdx]] = [next[targetIdx], next[idx]];
-      // Move cover with it if needed
-      if (coverIdx === idx) setCoverIdx(targetIdx);
-      else if (coverIdx === targetIdx) setCoverIdx(idx);
-      return next;
-    });
+  async function markCover(idx: number) {
+    const target = photos[idx];
+    if (!target || target.isCover) return;
+    setError(null);
+
+    const snapshot = photos;
+    setPhotos((prev) => prev.map((p, i) => ({ ...p, isCover: i === idx })));
+
+    try {
+      // Unmark previous covers
+      const previousCovers = snapshot.filter((p) => p.isCover);
+      for (const p of previousCovers) {
+        await supabase
+          .from("listing_photos")
+          .update({ is_cover: false })
+          .eq("id", p.id);
+      }
+      // Mark new cover
+      const { error: upErr } = await supabase
+        .from("listing_photos")
+        .update({ is_cover: true })
+        .eq("id", target.id);
+      if (upErr) throw upErr;
+    } catch (e) {
+      setPhotos(snapshot);
+      setError(`Couldn't update cover: ${(e as Error).message}`);
+    }
   }
 
-  function markCover(idx: number) {
-    setCoverIdx(idx);
+  async function reorder(idx: number, dir: -1 | 1) {
+    const targetIdx = idx + dir;
+    if (targetIdx < 0 || targetIdx >= photos.length) return;
+    setError(null);
+
+    const snapshot = photos;
+    const reordered = [...photos];
+    [reordered[idx], reordered[targetIdx]] = [
+      reordered[targetIdx],
+      reordered[idx],
+    ];
+    setPhotos(reordered.map((p, i) => ({ ...p, order: i })));
+
+    try {
+      // Persist new display_order values. We rewrite both swapped rows.
+      const a = snapshot[idx];
+      const b = snapshot[targetIdx];
+      await Promise.all([
+        supabase
+          .from("listing_photos")
+          .update({ display_order: targetIdx })
+          .eq("id", a.id),
+        supabase
+          .from("listing_photos")
+          .update({ display_order: idx })
+          .eq("id", b.id),
+      ]);
+    } catch (e) {
+      setPhotos(snapshot);
+      setError(`Couldn't reorder: ${(e as Error).message}`);
+    }
   }
 
   function onDrop(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault();
     setDragOver(false);
-    handleFiles(e.dataTransfer.files);
+    void handleFiles(e.dataTransfer.files);
   }
-
-  const canAddMore = photos.length < maxPhotos;
 
   return (
     <div className="space-y-4">
+      {!canUpload && (
+        <div
+          role="status"
+          className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex items-start gap-2"
+        >
+          <AlertCircle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+          <span>
+            <strong>Save your listing as a draft first</strong>, then come back to
+            this step to upload photos. Photos need a listing id to attach to.
+          </span>
+        </div>
+      )}
+
+      {error && (
+        <div
+          role="alert"
+          className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-start gap-2"
+        >
+          <AlertCircle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+          <span>{error}</span>
+        </div>
+      )}
+
       {/* Drop zone */}
       <div
         onDragOver={(e) => {
+          if (!canUpload) return;
           e.preventDefault();
           setDragOver(true);
         }}
         onDragLeave={() => setDragOver(false)}
-        onDrop={onDrop}
+        onDrop={canUpload ? onDrop : undefined}
         className={cn(
           "rounded-2xl border-2 border-dashed p-8 text-center transition-colors",
           dragOver
             ? "border-[var(--color-brand-500)] bg-[var(--color-brand-50)]"
             : "border-[var(--color-border-strong)] bg-[var(--color-surface)] hover:bg-[var(--color-brand-50)]/40",
-          !canAddMore && "opacity-60 pointer-events-none",
+          (!canAddMore || !canUpload) && "opacity-60 pointer-events-none",
         )}
       >
-        <UploadCloud
-          size={36}
-          className="mx-auto text-[var(--color-brand-600)]"
-          aria-hidden="true"
-        />
+        {uploading ? (
+          <Loader2
+            size={36}
+            className="mx-auto text-[var(--color-brand-600)] animate-spin"
+            aria-hidden="true"
+          />
+        ) : (
+          <UploadCloud
+            size={36}
+            className="mx-auto text-[var(--color-brand-600)]"
+            aria-hidden="true"
+          />
+        )}
         <p className="mt-3 text-sm font-semibold">
-          Drag photos here, or{" "}
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            className="text-[var(--color-brand-700)] underline hover:no-underline font-bold"
-          >
-            click to browse
-          </button>
+          {uploading
+            ? "Uploading…"
+            : canUpload
+              ? (
+                <>
+                  Drag photos here, or{" "}
+                  <button
+                    type="button"
+                    onClick={() => inputRef.current?.click()}
+                    className="text-[var(--color-brand-700)] underline hover:no-underline font-bold"
+                  >
+                    click to browse
+                  </button>
+                </>
+              )
+              : "Photo upload is disabled until you save a draft."}
         </p>
         <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
-          JPG, PNG or WebP — up to {maxPhotos} photos. Drag to reorder. Mark one as cover.
-        </p>
-        <p className="mt-2 text-[10px] uppercase tracking-wider font-bold text-amber-700">
-          PENDING — uploads land in Supabase Storage in Phase 1B
+          JPG, PNG or WebP — up to 5 MB each, max {maxPhotos} photos.
         </p>
         <input
           ref={inputRef}
           type="file"
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp"
           multiple
           className="sr-only"
-          onChange={(e) => handleFiles(e.target.files)}
+          disabled={!canUpload || uploading || !canAddMore}
+          onChange={(e) => void handleFiles(e.target.files)}
         />
       </div>
 
@@ -168,7 +390,7 @@ export function PhotoUploader({
               key={p.id}
               className={cn(
                 "group relative rounded-xl overflow-hidden border bg-[var(--color-bg-elevated)] aspect-square",
-                coverIdx === i
+                p.isCover
                   ? "border-[var(--color-brand-500)] ring-2 ring-[var(--color-brand-200)]"
                   : "border-[var(--color-border)]",
               )}
@@ -186,8 +408,7 @@ export function PhotoUploader({
                 </div>
               )}
 
-              {/* Cover badge */}
-              {coverIdx === i && (
+              {p.isCover && (
                 <span className="absolute top-1.5 left-1.5 inline-flex items-center gap-1 rounded-full bg-[var(--color-brand-500)] px-2 py-0.5 text-[10px] font-bold text-[var(--color-ink)]">
                   <Star size={10} className="fill-current" aria-hidden="true" />
                   Cover
@@ -199,7 +420,7 @@ export function PhotoUploader({
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
-                    onClick={() => reorder(i, -1)}
+                    onClick={() => void reorder(i, -1)}
                     disabled={i === 0}
                     aria-label={`Move photo ${i + 1} left`}
                     className="h-7 w-7 rounded-full bg-white/95 backdrop-blur-sm shadow-sm inline-flex items-center justify-center disabled:opacity-40"
@@ -208,7 +429,7 @@ export function PhotoUploader({
                   </button>
                   <button
                     type="button"
-                    onClick={() => reorder(i, 1)}
+                    onClick={() => void reorder(i, 1)}
                     disabled={i === photos.length - 1}
                     aria-label={`Move photo ${i + 1} right`}
                     className="h-7 w-7 rounded-full bg-white/95 backdrop-blur-sm shadow-sm inline-flex items-center justify-center disabled:opacity-40"
@@ -217,10 +438,10 @@ export function PhotoUploader({
                   </button>
                 </div>
                 <div className="flex items-center gap-1">
-                  {coverIdx !== i && (
+                  {!p.isCover && (
                     <button
                       type="button"
-                      onClick={() => markCover(i)}
+                      onClick={() => void markCover(i)}
                       aria-label={`Mark photo ${i + 1} as cover`}
                       className="h-7 w-7 rounded-full bg-white/95 backdrop-blur-sm shadow-sm inline-flex items-center justify-center text-amber-600 hover:text-amber-700"
                     >
@@ -229,7 +450,7 @@ export function PhotoUploader({
                   )}
                   <button
                     type="button"
-                    onClick={() => removeAt(i)}
+                    onClick={() => void removeAt(i)}
                     aria-label={`Remove photo ${i + 1}`}
                     className="h-7 w-7 rounded-full bg-white/95 backdrop-blur-sm shadow-sm inline-flex items-center justify-center text-red-600 hover:text-red-700"
                   >

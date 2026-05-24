@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { ListingGrid } from "@/components/listings/ListingGrid";
 import { CITY_NAMES } from "@/lib/site";
-import { getListingsByCity } from "@/lib/mockListings";
+import { createClient } from "@/lib/supabase/server";
+import type { Listing } from "@/lib/types";
 
 interface CityLandingProps {
   city: string;
@@ -16,7 +17,7 @@ interface CityLandingProps {
   totalListings?: number;
 }
 
-export function CityLanding({
+export async function CityLanding({
   city,
   state = "India",
   areas,
@@ -24,8 +25,36 @@ export function CityLanding({
   totalListings,
 }: CityLandingProps) {
   const cityName = CITY_NAMES[city] ?? city;
-  const cityListings = getListingsByCity(city, 6);
-  const totalCityListings = getListingsByCity(city).length;
+  const supabase = await createClient();
+
+  // Get up to 6 listings for this city (verified first, then most-recent)
+  const { data: cityListingsRows, error: cityListingsError } = await supabase
+    .from("listings")
+    .select("*, room_types(*), photos:listing_photos(*)")
+    .eq("city", city)
+    .eq("status", "live")
+    .order("is_verified", { ascending: false })
+    .order("updated_at", { ascending: false })
+    .limit(6);
+
+  if (cityListingsError) {
+    console.error("CityLanding cityListings query failed:", cityListingsError.message);
+  }
+
+  const cityListings = (cityListingsRows ?? []) as unknown as Listing[];
+
+  // Total count of live listings in this city
+  const { count: totalCityCount, error: countError } = await supabase
+    .from("listings")
+    .select("*", { count: "exact", head: true })
+    .eq("city", city)
+    .eq("status", "live");
+
+  if (countError) {
+    console.error("CityLanding count query failed:", countError.message);
+  }
+
+  const totalCityListings = totalCityCount ?? 0;
 
   const defaultIntro = `Find verified PGs, hostels, and rental flats in ${cityName}. From budget-friendly student PGs near colleges to couple-friendly flats in tech parks — all verified, all direct from owners. No brokers. No hidden fees.`;
 

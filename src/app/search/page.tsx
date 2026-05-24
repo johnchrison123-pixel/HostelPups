@@ -14,7 +14,7 @@ import {
   PROPERTY_TYPES,
   WEDGE_TAGS,
 } from "@/lib/site";
-import { getAllListings } from "@/lib/mockListings";
+import { createClient } from "@/lib/supabase/server";
 import type {
   GenderPreference,
   Listing,
@@ -48,42 +48,6 @@ interface SearchParams {
 }
 
 type Props = { searchParams: Promise<SearchParams> };
-
-/**
- * Filter the mock listings on the server using URL search params.
- * In Phase 1 this gets replaced with a real Supabase `.from('listings').select()` chain
- * with the same filter signature — keep names in sync.
- */
-function filterListings(all: Listing[], params: SearchParams): Listing[] {
-  let out = all;
-  if (params.city) {
-    out = out.filter((l) => l.city.toLowerCase() === params.city!.toLowerCase());
-  }
-  if (params.area) {
-    out = out.filter((l) => l.area.toLowerCase() === params.area!.toLowerCase());
-  }
-  if (params.type) {
-    out = out.filter((l) => l.type === params.type);
-  }
-  if (params.gender) {
-    out = out.filter((l) => l.gender_pref === params.gender);
-  }
-  if (params.tag) {
-    out = out.filter((l) =>
-      l.wedge_tags.includes(params.tag as WedgeTag),
-    );
-  }
-  if (params.q) {
-    const q = params.q.toLowerCase();
-    out = out.filter((l) =>
-      [l.title, l.area, l.description, CITY_NAMES[l.city] ?? l.city]
-        .join(" ")
-        .toLowerCase()
-        .includes(q),
-    );
-  }
-  return out;
-}
 
 /**
  * Build a query string by overriding a single param.
@@ -161,9 +125,69 @@ function buildActivePills(params: SearchParams): ActivePill[] {
 
 export default async function SearchPage({ searchParams }: Props) {
   const params = await searchParams;
-  const all = getAllListings();
-  const results = filterListings(all, params);
-  const totalCount = all.length;
+  const supabase = await createClient();
+
+  // Build the filtered query. Chain conditions only when the param is set.
+  let query = supabase
+    .from("listings")
+    .select("*, room_types(*), photos:listing_photos(*)", { count: "exact" })
+    .eq("status", "live");
+
+  if (params.city) query = query.eq("city", params.city.toLowerCase());
+  if (params.area) query = query.ilike("area", params.area);
+  if (params.type) query = query.eq("type", params.type);
+  if (params.gender) query = query.eq("gender_pref", params.gender);
+  if (params.tag) query = query.contains("wedge_tags", [params.tag]);
+  if (params.q) {
+    // Text search across title, area, description.
+    // Escape `%` and `,` in the user input so the .or() filter parses correctly.
+    const safeQ = params.q.replace(/[%,]/g, " ").trim();
+    if (safeQ) {
+      query = query.or(
+        `title.ilike.%${safeQ}%,area.ilike.%${safeQ}%,description.ilike.%${safeQ}%`,
+      );
+    }
+  }
+
+  const { data: resultsRows, count: resultsCount, error: resultsError } = await query
+    .order("is_verified", { ascending: false })
+    .order("updated_at", { ascending: false })
+    .limit(50);
+
+  if (resultsError) {
+    console.error("SearchPage results query failed:", resultsError.message);
+  }
+
+  const results = (resultsRows ?? []) as unknown as Listing[];
+
+  // Total live-listing count (no filters) for the "X of Y" display.
+  const { count: grandTotal, error: grandTotalError } = await supabase
+    .from("listings")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "live");
+
+  if (grandTotalError) {
+    console.error("SearchPage grandTotal query failed:", grandTotalError.message);
+  }
+
+  const totalCount = grandTotal ?? 0;
+
+  // Distinct areas for the active city — to populate the Area filter group.
+  let distinctAreas: string[] = [];
+  if (params.city) {
+    const { data: areaRows, error: areaErr } = await supabase
+      .from("listings")
+      .select("area")
+      .eq("city", params.city.toLowerCase())
+      .eq("status", "live");
+    if (areaErr) {
+      console.error("SearchPage area query failed:", areaErr.message);
+    }
+    distinctAreas = Array.from(
+      new Set((areaRows ?? []).map((r) => r.area as string).filter(Boolean)),
+    ).sort();
+  }
+
   const hasFilters = Boolean(
     params.city || params.area || params.type || params.gender || params.tag || params.q,
   );
@@ -182,13 +206,15 @@ export default async function SearchPage({ searchParams }: Props) {
 
   const activePills = buildActivePills(params);
   const activeCount = activePills.length;
+  // Reflect the actual filtered count from PostgREST; falls back to in-memory length.
+  const resultsTotal = resultsCount ?? results.length;
 
   return (
     <Container size="xl" className="py-10 sm:py-14">
       <div className="grid gap-6 lg:gap-10 lg:grid-cols-[280px_1fr]">
         {/* Sidebar — visible on desktop only */}
         <div className="hidden lg:block">
-          <FilterSidebar current={params} />
+          <FilterSidebar current={params} areas={distinctAreas} />
         </div>
 
         {/* Main column */}
@@ -202,7 +228,7 @@ export default async function SearchPage({ searchParams }: Props) {
             </h1>
             <p className="mt-2 text-[var(--color-ink-muted)]">
               {hasFilters
-                ? `Showing ${results.length} of ${totalCount} verified listings`
+                ? `Showing ${resultsTotal} of ${totalCount} verified listings`
                 : `Browse all ${totalCount} verified listings across our launch cities.`}
             </p>
           </header>
@@ -263,7 +289,7 @@ export default async function SearchPage({ searchParams }: Props) {
               </span>
             </summary>
             <div className="px-3 pb-3 -mt-1">
-              <FilterSidebar current={params} inline className="border-0 shadow-none p-0" />
+              <FilterSidebar current={params} areas={distinctAreas} inline className="border-0 shadow-none p-0" />
             </div>
           </details>
 

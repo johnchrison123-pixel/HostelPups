@@ -3,30 +3,39 @@
 import * as React from "react";
 import Link from "next/link";
 import {
-  Phone,
+  Mail,
   Building2,
   MapPin,
   ArrowRight,
   CheckCircle2,
   Loader2,
-  KeyRound,
-  Camera,
-  Sparkles,
-  ShieldCheck,
-  TrendingUp,
+  MailCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
-import { PRICING, CITY_NAMES, KERALA_CITIES, FULL_SERVICE_CITIES } from "@/lib/site";
-import { formatPrice, cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
+import { CITY_NAMES, KERALA_CITIES, FULL_SERVICE_CITIES } from "@/lib/site";
+import { cn } from "@/lib/utils";
 
-type Step = "details" | "verify" | "plan";
-type PlanId = "full_service" | "self_serve";
+/**
+ * Owner signup is a 2-step magic-link flow:
+ *   1. Property details (business_name + city + email) — we collect these
+ *      and pass them via signInWithOtp's options.data so they survive the
+ *      device-switch round-trip (user clicks the email on phone, lands back
+ *      with a fresh session).
+ *   2. Check-email confirmation — the user must click the link in their email.
+ *
+ * After magic-link verification, the user lands on /owner/dashboard, where
+ * a server action (ensureOwnerRecord) reads raw_user_meta_data and inserts
+ * the public.owners row + bumps the profile role to 'owner'. The user is
+ * prompted to pick a plan there (Phase 1B placeholder — full Razorpay billing
+ * comes in Phase 2).
+ */
+
+type Step = "details" | "check_email";
 
 const STEPS: { key: Step; label: string }[] = [
   { key: "details", label: "Property Details" },
-  { key: "verify", label: "Verify OTP" },
-  { key: "plan", label: "Choose Plan" },
+  { key: "check_email", label: "Check Inbox" },
 ];
 
 const ALL_CITIES = Array.from(new Set([...KERALA_CITIES, ...FULL_SERVICE_CITIES]));
@@ -91,27 +100,45 @@ function StepIndicator({ current }: { current: Step }) {
   );
 }
 
+function isValidEmail(s: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
+}
+
 export function OwnerSignupForm() {
   const [step, setStep] = React.useState<Step>("details");
   const [businessName, setBusinessName] = React.useState("");
   const [city, setCity] = React.useState("");
-  const [phone, setPhone] = React.useState("");
-  const [otp, setOtp] = React.useState("");
-  const [selectedPlan, setSelectedPlan] = React.useState<PlanId | null>(null);
+  const [email, setEmail] = React.useState("");
   const [sending, setSending] = React.useState(false);
-  const [verifying, setVerifying] = React.useState(false);
-  const [submitting, setSubmitting] = React.useState(false);
+  const [resending, setResending] = React.useState(false);
+  const [resendOk, setResendOk] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [success, setSuccess] = React.useState(false);
 
   const businessValid = businessName.trim().length >= 2;
   const cityValid = city.length > 0;
-  const phoneValid = /^[6-9]\d{9}$/.test(phone);
-  const otpValid = /^\d{6}$/.test(otp);
+  const emailValid = isValidEmail(email);
 
-  const isFullServiceCity = (FULL_SERVICE_CITIES as readonly string[]).includes(city);
+  async function sendMagicLink() {
+    const supabase = createClient();
+    // Pass business_name + city through user metadata. The /owner/dashboard
+    // server component will read these via ensureOwnerRecord() on first visit
+    // and insert the public.owners row.
+    const { error: authError } = await supabase.auth.signInWithOtp({
+      email: email.trim().toLowerCase(),
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/owner/dashboard?onboarding=1")}`,
+        data: {
+          name: businessName.trim(),
+          business_name: businessName.trim(),
+          city,
+          intent: "owner",
+        },
+      },
+    });
+    return authError;
+  }
 
-  function handleSendOtp(e: React.FormEvent) {
+  async function handleSendLink(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     if (!businessValid) {
@@ -122,54 +149,31 @@ export function OwnerSignupForm() {
       setError("Please select the city of your property.");
       return;
     }
-    if (!phoneValid) {
-      setError("Enter a 10-digit Indian mobile number starting with 6-9.");
+    if (!emailValid) {
+      setError("Please enter a valid email address.");
       return;
     }
     setSending(true);
-    // PENDING: wire to Supabase phone OTP
-    window.setTimeout(() => {
-      setSending(false);
-      setStep("verify");
-      // Sensible default based on city tier
-      setSelectedPlan(isFullServiceCity ? "full_service" : "self_serve");
-    }, 700);
-  }
-
-  function handleVerifyOtp(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    if (!otpValid) {
-      setError("Enter the 6-digit code we just sent you.");
+    const authError = await sendMagicLink();
+    setSending(false);
+    if (authError) {
+      setError(authError.message);
       return;
     }
-    setVerifying(true);
-    // PENDING: Supabase verifyOtp + INSERT into owners table
-    window.setTimeout(() => {
-      setVerifying(false);
-      setStep("plan");
-    }, 700);
+    setStep("check_email");
   }
 
-  function handleSubmitPlan(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleResend() {
     setError(null);
-    if (!selectedPlan) {
-      setError("Pick a plan to continue.");
+    setResendOk(false);
+    setResending(true);
+    const authError = await sendMagicLink();
+    setResending(false);
+    if (authError) {
+      setError(authError.message);
       return;
     }
-    setSubmitting(true);
-    // PENDING: Razorpay V2 — for now mark owner as registered without billing
-    window.setTimeout(() => {
-      setSubmitting(false);
-      setSuccess(true);
-    }, 700);
-  }
-
-  function handleResend() {
-    setError(null);
-    setOtp("");
-    // PENDING: re-trigger Supabase OTP resend
+    setResendOk(true);
   }
 
   /* ---------------------------- */
@@ -191,38 +195,14 @@ export function OwnerSignupForm() {
             </p>
           </>
         )}
-        {step === "verify" && (
+        {step === "check_email" && (
           <>
             <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-[var(--color-ink)]">
-              Verify your phone
+              Check your inbox
             </h1>
             <p className="mt-2 text-[var(--color-ink-muted)]">
-              We sent a 6-digit code to{" "}
-              <span className="font-semibold text-[var(--color-ink)]">
-                +91 {phone}
-              </span>
-              .
-            </p>
-          </>
-        )}
-        {step === "plan" && !success && (
-          <>
-            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-[var(--color-ink)]">
-              Pick the right tier
-            </h1>
-            <p className="mt-2 text-[var(--color-ink-muted)]">
-              You can switch tiers later. Billing kicks in only when you publish your first listing.
-            </p>
-          </>
-        )}
-        {success && (
-          <>
-            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-[var(--color-ink)]">
-              You&apos;re on the list, owner
-            </h1>
-            <p className="mt-2 text-[var(--color-ink-muted)]">
-              Our team will reach out within 24 hours to start onboarding{" "}
-              <span className="font-semibold text-[var(--color-ink)]">{businessName}</span>.
+              We sent a magic link to{" "}
+              <span className="font-semibold text-[var(--color-ink)]">{email}</span>.
             </p>
           </>
         )}
@@ -239,7 +219,7 @@ export function OwnerSignupForm() {
         )}
 
         {step === "details" && (
-          <form onSubmit={handleSendOtp} className="space-y-5" noValidate>
+          <form onSubmit={handleSendLink} className="space-y-5" noValidate>
             <div>
               <label
                 htmlFor="owner-business"
@@ -300,35 +280,35 @@ export function OwnerSignupForm() {
 
             <div>
               <label
-                htmlFor="owner-phone"
+                htmlFor="owner-email"
                 className="block text-sm font-semibold mb-1.5 text-[var(--color-ink)]"
               >
-                Your phone number
+                Your email
               </label>
               <div className="flex items-center gap-2 rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-bg)] px-4 h-12 transition-colors focus-within:border-[var(--color-brand-500)] focus-within:ring-2 focus-within:ring-[var(--color-brand-100)]">
-                <Phone
+                <Mail
                   size={16}
                   className="text-[var(--color-ink-subtle)]"
                   aria-hidden="true"
                 />
-                <span className="text-sm text-[var(--color-ink-muted)] font-medium">
-                  +91
-                </span>
                 <input
-                  id="owner-phone"
-                  type="tel"
-                  inputMode="numeric"
-                  pattern="[6-9][0-9]{9}"
-                  maxLength={10}
-                  autoComplete="tel-national"
-                  placeholder="9876543210"
-                  value={phone}
-                  onChange={(e) =>
-                    setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))
-                  }
+                  id="owner-email"
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="flex-1 bg-transparent outline-none text-base"
+                  aria-describedby="owner-email-help"
                 />
               </div>
+              <p
+                id="owner-email-help"
+                className="mt-1.5 text-xs text-[var(--color-ink-subtle)]"
+              >
+                We&apos;ll email you a one-click sign-in link. No password needed.
+              </p>
             </div>
 
             <Button
@@ -336,16 +316,16 @@ export function OwnerSignupForm() {
               variant="cta"
               size="lg"
               fullWidth
-              disabled={sending || !businessValid || !cityValid || !phoneValid}
+              disabled={sending || !businessValid || !cityValid || !emailValid}
             >
               {sending ? (
                 <>
                   <Loader2 size={18} className="animate-spin" />
-                  Sending OTP…
+                  Sending link…
                 </>
               ) : (
                 <>
-                  Send OTP &amp; Continue
+                  Send magic link &amp; continue
                   <ArrowRight size={18} />
                 </>
               )}
@@ -371,244 +351,66 @@ export function OwnerSignupForm() {
           </form>
         )}
 
-        {step === "verify" && (
-          <form onSubmit={handleVerifyOtp} className="space-y-5" noValidate>
-            <div>
-              <label
-                htmlFor="owner-otp"
-                className="block text-sm font-semibold mb-1.5 text-[var(--color-ink)]"
-              >
-                6-digit verification code
-              </label>
-              <div className="flex items-center gap-2 rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-bg)] px-4 h-14 transition-colors focus-within:border-[var(--color-brand-500)] focus-within:ring-2 focus-within:ring-[var(--color-brand-100)]">
-                <KeyRound
-                  size={16}
-                  className="text-[var(--color-ink-subtle)]"
-                  aria-hidden="true"
-                />
-                <input
-                  id="owner-otp"
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]{6}"
-                  maxLength={6}
-                  autoComplete="one-time-code"
-                  placeholder="000000"
-                  value={otp}
-                  onChange={(e) =>
-                    setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
-                  }
-                  className="flex-1 bg-transparent outline-none text-xl tracking-[0.5em] font-bold text-center placeholder:font-medium placeholder:text-[var(--color-ink-subtle)]"
-                  autoFocus
-                />
-              </div>
-            </div>
-
-            <Button
-              type="submit"
-              variant="cta"
-              size="lg"
-              fullWidth
-              disabled={verifying || !otpValid}
-            >
-              {verifying ? (
-                <>
-                  <Loader2 size={18} className="animate-spin" />
-                  Verifying…
-                </>
-              ) : (
-                <>
-                  Verify &amp; choose plan
-                  <ArrowRight size={18} />
-                </>
-              )}
-            </Button>
-
-            <div className="flex items-center justify-between text-sm">
-              <button
-                type="button"
-                onClick={() => {
-                  setStep("details");
-                  setOtp("");
-                  setError(null);
-                }}
-                className="text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] hover:underline font-medium"
-              >
-                Change details
-              </button>
-              <button
-                type="button"
-                onClick={handleResend}
-                className="text-[var(--color-brand-700)] hover:underline font-semibold"
-              >
-                Resend code
-              </button>
-            </div>
-          </form>
-        )}
-
-        {step === "plan" && !success && (
-          <form onSubmit={handleSubmitPlan} className="space-y-5" noValidate>
-            <fieldset className="space-y-3">
-              <legend className="sr-only">Pick a tier</legend>
-
-              {/* Full-service plan */}
-              <label
-                className={cn(
-                  "block rounded-2xl border-2 p-5 cursor-pointer transition-all",
-                  selectedPlan === "full_service"
-                    ? "border-[var(--color-brand-500)] bg-[var(--color-brand-50)] shadow-[var(--shadow-md)]"
-                    : "border-[var(--color-border)] bg-[var(--color-bg-elevated)] hover:border-[var(--color-brand-300)]",
-                )}
-              >
-                <div className="flex items-start gap-3">
-                  <input
-                    type="radio"
-                    name="plan"
-                    value="full_service"
-                    checked={selectedPlan === "full_service"}
-                    onChange={() => setSelectedPlan("full_service")}
-                    className="mt-1 h-4 w-4 accent-[var(--color-brand-500)]"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="font-bold text-lg">Full-Service</span>
-                      {isFullServiceCity ? (
-                        <Badge tone="verified">Available in {CITY_NAMES[city]}</Badge>
-                      ) : (
-                        <Badge tone="warning">Kochi / Bangalore / Chennai only</Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-[var(--color-ink-muted)] mb-3">
-                      We come on-site, do KYC, run a professional photoshoot, and write your listing copy.
-                      Unlimited active listings.
-                    </p>
-                    <ul className="space-y-1.5 text-sm">
-                      <li className="flex items-center gap-2">
-                        <Camera size={14} className="text-[var(--color-brand-600)] shrink-0" aria-hidden="true" />
-                        Professional photoshoot (photos owned by us)
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <ShieldCheck size={14} className="text-emerald-600 shrink-0" aria-hidden="true" />
-                        In-person KYC + verification badge
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Sparkles size={14} className="text-[var(--color-brand-600)] shrink-0" aria-hidden="true" />
-                        Unlimited listings
-                      </li>
-                    </ul>
-                    <p className="mt-3 text-sm">
-                      <span className="text-2xl font-black">
-                        {formatPrice(PRICING.owner.fullService.firstYear)}
-                      </span>
-                      <span className="text-[var(--color-ink-muted)]">
-                        {" "}first year, then {formatPrice(PRICING.owner.fullService.renewal)}/year
-                      </span>
-                    </p>
-                  </div>
-                </div>
-              </label>
-
-              {/* Self-serve plan */}
-              <label
-                className={cn(
-                  "block rounded-2xl border-2 p-5 cursor-pointer transition-all",
-                  selectedPlan === "self_serve"
-                    ? "border-[var(--color-brand-500)] bg-[var(--color-brand-50)] shadow-[var(--shadow-md)]"
-                    : "border-[var(--color-border)] bg-[var(--color-bg-elevated)] hover:border-[var(--color-brand-300)]",
-                )}
-              >
-                <div className="flex items-start gap-3">
-                  <input
-                    type="radio"
-                    name="plan"
-                    value="self_serve"
-                    checked={selectedPlan === "self_serve"}
-                    onChange={() => setSelectedPlan("self_serve")}
-                    className="mt-1 h-4 w-4 accent-[var(--color-brand-500)]"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="font-bold text-lg">Self-Serve</span>
-                      <Badge tone="brand">Available everywhere</Badge>
-                    </div>
-                    <p className="text-sm text-[var(--color-ink-muted)] mb-3">
-                      Upload your own photos, write your listing, get verified via video KYC.
-                      Up to {PRICING.owner.selfServe.maxActiveListings} active listings.
-                    </p>
-                    <ul className="space-y-1.5 text-sm">
-                      <li className="flex items-center gap-2">
-                        <TrendingUp size={14} className="text-[var(--color-brand-600)] shrink-0" aria-hidden="true" />
-                        Listed in 24 hours after upload
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <ShieldCheck size={14} className="text-emerald-600 shrink-0" aria-hidden="true" />
-                        Optional verification badge (+Rs 799/year)
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Sparkles size={14} className="text-[var(--color-brand-600)] shrink-0" aria-hidden="true" />
-                        Max {PRICING.owner.selfServe.maxActiveListings} active listings
-                      </li>
-                    </ul>
-                    <p className="mt-3 text-sm">
-                      <span className="text-2xl font-black">
-                        {formatPrice(PRICING.owner.selfServe.yearly)}
-                      </span>
-                      <span className="text-[var(--color-ink-muted)]"> / year</span>
-                    </p>
-                  </div>
-                </div>
-              </label>
-            </fieldset>
-
-            <Button
-              type="submit"
-              variant="cta"
-              size="lg"
-              fullWidth
-              disabled={submitting || !selectedPlan}
-            >
-              {submitting ? (
-                <>
-                  <Loader2 size={18} className="animate-spin" />
-                  Saving…
-                </>
-              ) : (
-                <>
-                  Continue — billing on first listing
-                  <ArrowRight size={18} />
-                </>
-              )}
-            </Button>
-
-            <p className="text-center text-xs text-[var(--color-ink-subtle)] pt-1">
-              No payment now. Razorpay billing activates only when you publish your first listing.
-            </p>
-          </form>
-        )}
-
-        {success && (
-          <div className="text-center py-6 space-y-5">
+        {step === "check_email" && (
+          <div className="text-center py-3 space-y-5">
             <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
-              <CheckCircle2
+              <MailCheck
                 size={32}
                 className="text-[var(--color-success)]"
                 aria-hidden="true"
               />
             </div>
-            <p className="text-[var(--color-ink-muted)]">
-              Selected plan:{" "}
-              <span className="font-semibold text-[var(--color-ink)]">
-                {selectedPlan === "full_service" ? "Full-Service" : "Self-Serve"}
-              </span>
-            </p>
-            <div className="space-y-2">
-              <Button href="/for-owners" variant="cta" fullWidth>
-                Read the owner playbook
-                <ArrowRight size={16} />
+            <div className="space-y-1.5">
+              <p className="text-base font-semibold text-[var(--color-ink)]">
+                Click the link in your email — then you&apos;ll choose your plan.
+              </p>
+              <p className="text-sm text-[var(--color-ink-muted)]">
+                The link expires in 10 minutes. Check your spam folder if you
+                don&apos;t see it within a minute. After clicking, you&apos;ll
+                land on your owner dashboard where you can pick Full-Service
+                or Self-Serve.
+              </p>
+            </div>
+
+            {resendOk && (
+              <div
+                role="status"
+                className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700"
+              >
+                New link sent. Check your inbox.
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="md"
+                fullWidth
+                onClick={() => {
+                  setStep("details");
+                  setResendOk(false);
+                  setError(null);
+                }}
+              >
+                Wrong email? Try again
               </Button>
-              <Button href="/" variant="outline" fullWidth>
-                Back to home
+              <Button
+                type="button"
+                variant="ghost"
+                size="md"
+                fullWidth
+                onClick={handleResend}
+                disabled={resending}
+              >
+                {resending ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Resending…
+                  </>
+                ) : (
+                  "Resend link"
+                )}
               </Button>
             </div>
           </div>

@@ -10,7 +10,6 @@ import type { Owner } from "./types";
 export const MOCK_OWNERS: Owner[] = [
   {
     id: "own_kerala_01",
-    profile_id: "prof_kerala_01",
     tier: "full_service",
     business_name: "Sundaram Properties",
     kyc_status: "verified",
@@ -22,7 +21,6 @@ export const MOCK_OWNERS: Owner[] = [
   },
   {
     id: "own_kerala_02",
-    profile_id: "prof_kerala_02",
     tier: "full_service",
     business_name: "Krishna Hospitality",
     kyc_status: "verified",
@@ -34,7 +32,6 @@ export const MOCK_OWNERS: Owner[] = [
   },
   {
     id: "own_kerala_03",
-    profile_id: "prof_kerala_03",
     tier: "self_serve",
     business_name: "Mariamma George",
     kyc_status: "verified",
@@ -45,7 +42,6 @@ export const MOCK_OWNERS: Owner[] = [
   },
   {
     id: "own_blr_01",
-    profile_id: "prof_blr_01",
     tier: "full_service",
     business_name: "Bengaluru Stays Pvt Ltd",
     kyc_status: "verified",
@@ -57,7 +53,6 @@ export const MOCK_OWNERS: Owner[] = [
   },
   {
     id: "own_blr_02",
-    profile_id: "prof_blr_02",
     tier: "self_serve",
     business_name: "Anita Reddy Rentals",
     kyc_status: "verified",
@@ -68,7 +63,6 @@ export const MOCK_OWNERS: Owner[] = [
   },
   {
     id: "own_chn_01",
-    profile_id: "prof_chn_01",
     tier: "full_service",
     business_name: "Saravana Bhavan PG",
     kyc_status: "verified",
@@ -80,7 +74,6 @@ export const MOCK_OWNERS: Owner[] = [
   },
   {
     id: "own_chn_02",
-    profile_id: "prof_chn_02",
     tier: "self_serve",
     business_name: "Faisal Ahmed Properties",
     kyc_status: "verified",
@@ -91,7 +84,6 @@ export const MOCK_OWNERS: Owner[] = [
   },
   {
     id: "own_calicut_01",
-    profile_id: "prof_calicut_01",
     tier: "self_serve",
     business_name: "Suja Nambiar",
     kyc_status: "verified",

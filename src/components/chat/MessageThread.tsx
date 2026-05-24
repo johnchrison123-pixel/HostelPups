@@ -100,7 +100,7 @@ export function MessageThread({
   }, [messages]);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-12rem)] sm:h-[calc(100vh-14rem)] rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
+    <div className="flex flex-col h-[calc(100dvh-12rem)] sm:h-[calc(100dvh-14rem)] rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
       <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3"

@@ -2,6 +2,8 @@ import * as React from "react";
 import { Building2, BadgeCheck, TrendingUp, Camera } from "lucide-react";
 import { Container } from "@/components/ui/Container";
 import { Button } from "@/components/ui/Button";
+import { PRICING } from "@/lib/site";
+import { formatPrice } from "@/lib/utils";
 
 const benefits = [
   {
@@ -45,9 +47,9 @@ export function OwnerCTA() {
               <span className="text-[var(--color-brand-400)]">all year.</span>
             </h2>
             <p className="mt-4 text-lg text-zinc-300 leading-relaxed max-w-xl">
-              India&apos;s fastest-growing hostel marketplace. ₹1,999 for full-service
-              registration with photoshoot, KYC, and verification. Or ₹999/year
-              self-serve with up to 3 active listings.
+              India&apos;s fastest-growing hostel marketplace. {formatPrice(PRICING.owner.fullService.firstYear)} for
+              full-service registration with photoshoot, KYC, and verification. Or {formatPrice(PRICING.owner.selfServe.yearly)}/year
+              self-serve with up to {PRICING.owner.selfServe.maxActiveListings} active listings.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import {
   MapPin,
@@ -32,7 +33,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { ListingGrid } from "@/components/listings/ListingGrid";
 import { buildMetadata, breadcrumbSchema, lodgingSchema } from "@/lib/seo";
-import { CITY_NAMES, PROPERTY_TYPES, WEDGE_TAGS } from "@/lib/site";
+import { CITY_NAMES, PROPERTY_TYPES, WEDGE_TAGS, PRICING } from "@/lib/site";
 import {
   getListingMinPrice,
   getListingGradient,
@@ -259,6 +260,19 @@ export default async function ListingPage({ params }: Props) {
   const houseRules = listing.house_rules ?? [];
   const wedgeTags = listing.wedge_tags ?? [];
 
+  // Photos: sort ascending by display_order, then pick cover-tagged photo as
+  // hero (falling back to the first photo). The remaining (up to 4) render in
+  // a thumbnail strip beside the hero on desktop / below it on mobile.
+  const sortedPhotos = [...(listing.photos ?? [])].sort(
+    (a, b) => (a.display_order ?? 0) - (b.display_order ?? 0),
+  );
+  const coverPhoto =
+    sortedPhotos.find((p) => p.is_cover) ?? sortedPhotos[0] ?? null;
+  const thumbPhotos = sortedPhotos
+    .filter((p) => p.id !== coverPhoto?.id)
+    .slice(0, 4);
+  const hasPhotos = sortedPhotos.length > 0;
+
   return (
     <>
       {/* JSON-LD: breadcrumbs + LodgingBusiness */}
@@ -304,45 +318,121 @@ export default async function ListingPage({ params }: Props) {
           <span className="text-[var(--color-ink)]">{listing.title}</span>
         </nav>
 
-        {/* Gallery (gradient slideshow placeholder until real photos land) */}
-        <div
-          className="relative rounded-2xl overflow-hidden h-64 sm:h-80 lg:h-96 flex items-end p-6"
-          style={{ background: gradient }}
-          role="img"
-          aria-label={`${listing.title} cover photo placeholder`}
-        >
-          <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/10 to-transparent" />
+        {/* Gallery — real owner photos when available, gradient placeholder when not */}
+        {hasPhotos && coverPhoto ? (
+          <div className="grid lg:grid-cols-[2fr_1fr] gap-2 lg:gap-3">
+            {/* Hero photo */}
+            <div className="relative rounded-2xl overflow-hidden h-64 sm:h-80 lg:h-[28rem] bg-[var(--color-surface)]">
+              <Image
+                src={coverPhoto.url}
+                alt={`${listing.title} — cover photo (${listing.area}, ${cityName})`}
+                fill
+                priority
+                sizes="(max-width: 1024px) 100vw, 66vw"
+                className="object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/5 to-transparent pointer-events-none" />
 
-          <div className="absolute top-4 left-4 flex gap-2 flex-wrap">
-            {listing.is_verified && (
-              <Badge tone="verified" icon={<ShieldCheck size={12} />}>
-                Verified
-              </Badge>
+              {/* Top-left badges */}
+              <div className="absolute top-4 left-4 flex gap-2 flex-wrap">
+                {listing.is_verified && (
+                  <Badge tone="verified" icon={<ShieldCheck size={12} />}>
+                    Verified
+                  </Badge>
+                )}
+                <Badge tone="brand">{propertyTypeLabel}</Badge>
+              </div>
+
+              {/* Top-right actions */}
+              <div className="absolute top-4 right-4 flex gap-2">
+                <button
+                  type="button"
+                  aria-label="Save to favourites"
+                  className="h-9 w-9 rounded-full bg-white/95 inline-flex items-center justify-center hover:bg-white transition-colors"
+                >
+                  <Heart size={16} className="text-[var(--color-ink-muted)]" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Share listing"
+                  className="h-9 w-9 rounded-full bg-white/95 inline-flex items-center justify-center hover:bg-white transition-colors"
+                >
+                  <Share2 size={16} className="text-[var(--color-ink-muted)]" />
+                </button>
+              </div>
+
+              {/* Total photo count */}
+              {sortedPhotos.length > 1 && (
+                <p className="absolute bottom-4 right-4 rounded-full bg-black/55 backdrop-blur-sm px-3 py-1 text-xs font-semibold text-white">
+                  {sortedPhotos.length} photos
+                </p>
+              )}
+            </div>
+
+            {/* Thumbnail grid — desktop only, max 4 thumbs */}
+            {thumbPhotos.length > 0 && (
+              <div className="hidden lg:grid grid-cols-2 grid-rows-2 gap-2 lg:gap-3 h-[28rem]">
+                {thumbPhotos.map((p, idx) => (
+                  <div
+                    key={p.id}
+                    className="relative rounded-2xl overflow-hidden bg-[var(--color-surface)]"
+                  >
+                    <Image
+                      src={p.url}
+                      alt={`${listing.title} — photo ${idx + 2}`}
+                      fill
+                      sizes="(max-width: 1024px) 50vw, 25vw"
+                      className="object-cover"
+                    />
+                  </div>
+                ))}
+              </div>
             )}
-            <Badge tone="brand">{propertyTypeLabel}</Badge>
           </div>
+        ) : (
+          // No photos uploaded yet — keep gradient placeholder with "coming soon" badge
+          <div
+            className="relative rounded-2xl overflow-hidden h-64 sm:h-80 lg:h-96 flex items-end p-6"
+            style={{ background: gradient }}
+            role="img"
+            aria-label={`${listing.title} photo placeholder`}
+          >
+            <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/10 to-transparent" />
 
-          <div className="absolute top-4 right-4 flex gap-2">
-            <button
-              type="button"
-              aria-label="Save to favourites"
-              className="h-9 w-9 rounded-full bg-white/95 inline-flex items-center justify-center hover:bg-white transition-colors"
-            >
-              <Heart size={16} className="text-[var(--color-ink-muted)]" />
-            </button>
-            <button
-              type="button"
-              aria-label="Share listing"
-              className="h-9 w-9 rounded-full bg-white/95 inline-flex items-center justify-center hover:bg-white transition-colors"
-            >
-              <Share2 size={16} className="text-[var(--color-ink-muted)]" />
-            </button>
+            <div className="absolute top-4 left-4 flex gap-2 flex-wrap">
+              {listing.is_verified && (
+                <Badge tone="verified" icon={<ShieldCheck size={12} />}>
+                  Verified
+                </Badge>
+              )}
+              <Badge tone="brand">{propertyTypeLabel}</Badge>
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/95 px-3 py-1 text-xs font-semibold text-[var(--color-ink-muted)]">
+                Photos coming soon
+              </span>
+            </div>
+
+            <div className="absolute top-4 right-4 flex gap-2">
+              <button
+                type="button"
+                aria-label="Save to favourites"
+                className="h-9 w-9 rounded-full bg-white/95 inline-flex items-center justify-center hover:bg-white transition-colors"
+              >
+                <Heart size={16} className="text-[var(--color-ink-muted)]" />
+              </button>
+              <button
+                type="button"
+                aria-label="Share listing"
+                className="h-9 w-9 rounded-full bg-white/95 inline-flex items-center justify-center hover:bg-white transition-colors"
+              >
+                <Share2 size={16} className="text-[var(--color-ink-muted)]" />
+              </button>
+            </div>
+
+            <p className="relative text-sm text-white/90 font-medium">
+              Owner photos coming soon — message below to ask the owner for pictures.
+            </p>
           </div>
-
-          <p className="relative text-sm text-white/90 font-medium">
-            Photo gallery loading in Phase 1 — owner pictures coming soon
-          </p>
-        </div>
+        )}
 
         {/* Main + sidebar */}
         <div className="grid lg:grid-cols-3 gap-8 mt-6">
@@ -561,10 +651,14 @@ export default async function ListingPage({ params }: Props) {
                   <span className="font-semibold text-sm">Contact details locked</span>
                 </div>
                 <p className="text-xs text-[var(--color-ink-muted)] mb-3">
-                  Unlock owner phone &amp; full address — pay {formatPrice(99)} for 7-day access to unlimited listings.
+                  Unlock owner phone &amp; full address — pay {formatPrice(PRICING.user.week.price)} for 7-day access to unlimited listings.
                 </p>
-                <Button href="/signup" variant="cta" fullWidth>
-                  Unlock contact — {formatPrice(99)}
+                <Button
+                  href={`/signup?next=${encodeURIComponent(`/pg/${city}/${slug}`)}`}
+                  variant="cta"
+                  fullWidth
+                >
+                  Unlock contact — {formatPrice(PRICING.user.week.price)}
                 </Button>
               </div>
 

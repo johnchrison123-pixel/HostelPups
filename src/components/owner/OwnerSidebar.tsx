@@ -14,9 +14,9 @@ import {
   Settings,
   Menu,
   X,
-  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { OwnerSignOutButton } from "./OwnerSignOutButton";
 
 interface NavItem {
   href: string;
@@ -29,7 +29,7 @@ const NAV: NavItem[] = [
   { href: "/owner/dashboard", label: "Dashboard", Icon: LayoutDashboard },
   { href: "/owner/listings", label: "My Listings", Icon: ClipboardList },
   { href: "/owner/inquiries", label: "Inquiries", Icon: MessageSquare },
-  { href: "/owner/calls", label: "Calls", Icon: PhoneCall, pending: true },
+  { href: "/owner/calls", label: "Calls", Icon: PhoneCall },
   { href: "/owner/reviews", label: "Reviews", Icon: Star },
   { href: "/owner/payments", label: "Payments", Icon: CreditCard },
   { href: "/owner/profile", label: "Business Profile", Icon: Building2 },
@@ -93,13 +93,7 @@ export function OwnerSidebar({ businessName = "Your Business" }: OwnerSidebarPro
 
       <div className="my-3 border-t border-[var(--color-border)]" />
 
-      <Link
-        href="/owner/login"
-        className="inline-flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-[var(--color-ink-muted)] hover:bg-[var(--color-surface)] hover:text-[var(--color-ink)] transition-colors"
-      >
-        <LogOut size={18} className="text-[var(--color-ink-subtle)]" aria-hidden="true" />
-        Sign out
-      </Link>
+      <OwnerSignOutButton />
     </nav>
   );
 

@@ -63,8 +63,12 @@ export interface Profile {
 }
 
 export interface Owner {
+  /**
+   * Primary key — also the FK to `profiles.id`. The `owners` table is 1:1
+   * with `profiles` (an owner is "a profile with an owners row"). There is
+   * NO separate `profile_id` column — use this `id` everywhere.
+   */
   id: string;
-  profile_id: string;
   tier: OwnerTier;
   business_name: string;
   kyc_status: KycStatus;
@@ -91,8 +95,13 @@ export interface ListingPhoto {
   id: string;
   listing_id: string;
   url: string;
-  order: number;
+  /**
+   * Sort order ascending. Matches the DB column name `display_order` (in
+   * `supabase/migrations/0001_initial_schema.sql`). Lower = earlier.
+   */
+  display_order: number;
   is_cover: boolean;
+  created_at?: string;
 }
 
 export interface Amenity {

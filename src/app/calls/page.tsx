@@ -37,10 +37,10 @@ export default async function CallsPage() {
             HostelPups — your phone number is never shared.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Button href="/login" variant="cta" size="lg">
+            <Button href="/login?next=%2Fcalls" variant="cta" size="lg">
               Sign in
             </Button>
-            <Button href="/signup" variant="outline" size="lg">
+            <Button href="/signup?next=%2Fcalls" variant="outline" size="lg">
               Create account
             </Button>
           </div>

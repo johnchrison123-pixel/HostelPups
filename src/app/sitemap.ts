@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { SITE } from "@/lib/site";
+import { createPublicClient } from "@/lib/supabase/public";
 
 /**
  * Only cities with actual landing pages go in the sitemap.
@@ -15,7 +16,7 @@ const LAUNCHED_CITIES = [
   "chennai",
 ] as const;
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
 
   // Static marketing + indexable pages only.
@@ -66,5 +67,31 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
   ]);
 
-  return [...staticPaths, ...cityPaths];
+  // All live listings — the most SEO-valuable URLs. Queried via cookie-less
+  // client at sitemap-generation time. If the Supabase env vars aren't set
+  // (e.g., misconfigured Vercel preview deploy), gracefully return [].
+  let listingPaths: MetadataRoute.Sitemap = [];
+  try {
+    const supabase = createPublicClient();
+    const { data: listings, error } = await supabase
+      .from("listings")
+      .select("city, slug, updated_at")
+      .eq("status", "live")
+      .order("updated_at", { ascending: false });
+
+    if (error) {
+      console.error("sitemap listings query failed:", error.message);
+    } else if (listings) {
+      listingPaths = listings.map((l) => ({
+        url: `${SITE.url}/pg/${l.city}/${l.slug}`,
+        lastModified: l.updated_at ? new Date(l.updated_at) : now,
+        changeFrequency: "weekly" as const,
+        priority: 0.85,
+      }));
+    }
+  } catch (err) {
+    console.error("sitemap listings fetch threw:", err);
+  }
+
+  return [...staticPaths, ...cityPaths, ...listingPaths];
 }

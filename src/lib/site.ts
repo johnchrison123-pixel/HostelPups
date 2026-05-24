@@ -18,8 +18,11 @@ export const SITE = {
   description:
     "Find verified PGs, hostels, and rental flats across India. Couple-friendly, bachelor-friendly, pet-friendly. Talk directly to verified owners — no brokers, no hidden fees.",
 
-  // OG defaults
-  ogImage: "/og-default.png",
+  // OG defaults — generated on the fly by src/app/opengraph-image.tsx via
+  // Next.js's ImageResponse / Open Graph convention. Next exposes it at
+  // /opengraph-image and rewrites the URL to a stable hash so social
+  // scrapers cache it correctly.
+  ogImage: "/opengraph-image",
 
   // Social
   social: {

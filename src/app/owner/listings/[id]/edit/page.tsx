@@ -51,13 +51,13 @@ export default async function EditListingPage({ params }: Props) {
 
   const existingPhotos: UploaderPhoto[] = (listing.photos ?? [])
     .slice()
-    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
     .map((p) => ({
       id: p.id,
       preview: p.url,
       name: p.url.split("/").pop() ?? "photo",
       isCover: p.is_cover,
-      order: p.order,
+      order: p.display_order,
     }));
 
   const initial = {

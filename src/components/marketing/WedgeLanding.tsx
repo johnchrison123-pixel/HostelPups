@@ -4,8 +4,9 @@ import { ArrowRight, ArrowUpRight, ShieldCheck } from "lucide-react";
 import { Container } from "@/components/ui/Container";
 import { Button } from "@/components/ui/Button";
 import { ListingGrid } from "@/components/listings/ListingGrid";
-import { CITY_NAMES } from "@/lib/site";
-import { createClient } from "@/lib/supabase/server";
+import { CITY_NAMES, PRICING } from "@/lib/site";
+import { formatPrice } from "@/lib/utils";
+import { createPublicClient } from "@/lib/supabase/public";
 import type { Listing } from "@/lib/types";
 
 interface WedgeLandingProps {
@@ -36,41 +37,51 @@ export async function WedgeLanding({
     pet: "bg-teal-50 border-teal-200 text-teal-800",
   }[badgeTone];
 
-  const supabase = await createClient();
-
-  // Listings tagged with this wedge in this city
-  const { data: cityWedgeRows, error: cityWedgeError } = await supabase
-    .from("listings")
-    .select("*, room_types(*), photos:listing_photos(*)")
-    .eq("city", city)
-    .eq("status", "live")
-    .contains("wedge_tags", [wedge])
-    .order("is_verified", { ascending: false })
-    .order("updated_at", { ascending: false })
-    .limit(6);
-
-  if (cityWedgeError) {
-    console.error("WedgeLanding cityWedge query failed:", cityWedgeError.message);
-  }
-
-  const cityWedgeListings = (cityWedgeRows ?? []) as unknown as Listing[];
-
-  // National fallback (only fetch if city-specific empty — saves a roundtrip when not needed)
+  // Cookie-less client so the route can be statically rendered with ISR.
+  // Public reads only (status='live'). All Supabase calls wrapped in
+  // try/catch — at build time a placeholder/unreachable Supabase URL throws
+  // a raw `TypeError: fetch failed` which would crash the static-gen worker.
+  let cityWedgeListings: Listing[] = [];
   let nationalWedgeListings: Listing[] = [];
-  if (cityWedgeListings.length === 0) {
-    const { data: nationalRows, error: nationalError } = await supabase
+  try {
+    const supabase = createPublicClient();
+
+    // Listings tagged with this wedge in this city
+    const { data: cityWedgeRows, error: cityWedgeError } = await supabase
       .from("listings")
       .select("*, room_types(*), photos:listing_photos(*)")
+      .eq("city", city)
       .eq("status", "live")
       .contains("wedge_tags", [wedge])
       .order("is_verified", { ascending: false })
       .order("updated_at", { ascending: false })
       .limit(6);
 
-    if (nationalError) {
-      console.error("WedgeLanding national query failed:", nationalError.message);
+    if (cityWedgeError) {
+      console.error("WedgeLanding cityWedge query failed:", cityWedgeError.message);
+    } else {
+      cityWedgeListings = (cityWedgeRows ?? []) as unknown as Listing[];
     }
-    nationalWedgeListings = (nationalRows ?? []) as unknown as Listing[];
+
+    // National fallback (only fetch if city-specific empty — saves a roundtrip when not needed)
+    if (cityWedgeListings.length === 0) {
+      const { data: nationalRows, error: nationalError } = await supabase
+        .from("listings")
+        .select("*, room_types(*), photos:listing_photos(*)")
+        .eq("status", "live")
+        .contains("wedge_tags", [wedge])
+        .order("is_verified", { ascending: false })
+        .order("updated_at", { ascending: false })
+        .limit(6);
+
+      if (nationalError) {
+        console.error("WedgeLanding national query failed:", nationalError.message);
+      } else {
+        nationalWedgeListings = (nationalRows ?? []) as unknown as Listing[];
+      }
+    }
+  } catch (err) {
+    console.error("WedgeLanding supabase fetch threw:", err);
   }
 
   const listingsToShow =
@@ -201,7 +212,7 @@ export async function WedgeLanding({
 
           <div className="mt-10 text-center">
             <Button href="/signup" variant="cta" size="lg">
-              Sign Up — ₹99/week unlocks all owners
+              Sign Up — {formatPrice(PRICING.user.week.price)}/week unlocks all owners
             </Button>
           </div>
         </Container>

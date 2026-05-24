@@ -21,6 +21,7 @@ import {
 } from "@/lib/call-actions";
 import { PeerManager } from "@/lib/webrtc/peer";
 import { Signaling, type SignalingMessage } from "@/lib/webrtc/signaling";
+import { createClient } from "@/lib/supabase/client";
 import type { CallWithJoins } from "@/lib/call-queries";
 import { CITY_NAMES } from "@/lib/site";
 
@@ -36,12 +37,16 @@ import { CITY_NAMES } from "@/lib/site";
  *   - <audio autoplay> sink for the remote MediaStream
  *
  * Lifecycle (caller role):
- *   mount → start mic → createOffer → send via signaling
+ *   mount → subscribe signaling + watch calls row → "Ringing…" UI
+ *        → NO mic engaged yet (don't burn battery / privacy for 60s while ringing)
+ *        → callee accepts → calls.status flips to 'accepted' → start mic
+ *        → createOffer → send via signaling
  *        → wait for callee_answer → setRemoteDescription
  *        → exchange ICE → connected
  *
  * Lifecycle (callee role):
- *   mount → subscribe signaling first → wait for caller_offer
+ *   mount (only reached AFTER callee tapped Accept in IncomingCallModal)
+ *        → subscribe signaling first → wait for caller_offer
  *        → setRemoteDescription → start mic → createAnswer → send back
  *        → exchange ICE → connected
  *
@@ -141,6 +146,28 @@ export function InCallScreen({ call, role, myUserId }: InCallScreenProps) {
   // ----- Main WebRTC setup -----
   React.useEffect(() => {
     let cancelled = false;
+    let callRowChannel: ReturnType<ReturnType<typeof createClient>["channel"]> | null = null;
+    // Caller-side guard: only kick off mic + offer once after the callee accepts.
+    let callerOfferStarted = false;
+
+    async function startCallerOfferFlow(peer: PeerManager) {
+      if (callerOfferStarted) return;
+      callerOfferStarted = true;
+      try {
+        // Now that the callee has accepted, request mic + send the SDP offer.
+        await peer.start();
+        const offer = await peer.createOffer();
+        await signalingRef.current?.send({ type: "caller_offer", sdp: offer });
+        if (!cancelled) setConnState("connecting");
+      } catch (err) {
+        if (cancelled) return;
+        const msg =
+          err instanceof Error ? err.message : "Could not start the call";
+        setConnState("failed");
+        setErrorMsg(msg);
+        void failCall(call.id).catch(() => {});
+      }
+    }
 
     async function setup() {
       try {
@@ -188,11 +215,56 @@ export function InCallScreen({ call, role, myUserId }: InCallScreenProps) {
         if (cancelled) return;
 
         if (role === "caller") {
-          // Caller starts the SDP exchange immediately.
-          await peer.start();
-          const offer = await peer.createOffer();
-          await signaling.send({ type: "caller_offer", sdp: offer });
+          // Caller: show "Ringing…" UI but DON'T engage the mic yet. We
+          // subscribe to the calls row so we can detect the moment the
+          // callee taps Accept — at that point we'll request mic + send the
+          // offer (see startCallerOfferFlow). This keeps the mic off during
+          // the full ringing window (up to ~60s), saving battery + avoiding
+          // a "the other side is listening to my breathing" privacy issue.
           setConnState("ringing");
+
+          // If the call was already accepted by the time we got here (race),
+          // skip straight to the offer flow.
+          if (call.status === "accepted") {
+            void startCallerOfferFlow(peer);
+          } else {
+            // Subscribe to the calls row for status updates.
+            const supabase = createClient();
+            const channel = supabase
+              .channel(`call-row:${call.id}`)
+              .on(
+                "postgres_changes",
+                {
+                  event: "UPDATE",
+                  schema: "public",
+                  table: "calls",
+                  filter: `id=eq.${call.id}`,
+                },
+                (payload) => {
+                  if (cancelled) return;
+                  const next = payload.new as { status?: string } | null;
+                  if (!next) return;
+                  if (next.status === "accepted") {
+                    void startCallerOfferFlow(peer);
+                  } else if (
+                    next.status === "rejected" ||
+                    next.status === "missed"
+                  ) {
+                    // Callee rejected or didn't pick up in time. Surface a
+                    // friendly state and bounce back to the call list.
+                    setConnState("ended");
+                    setErrorMsg(
+                      next.status === "rejected"
+                        ? "Call declined."
+                        : "No answer.",
+                    );
+                    setTimeout(() => router.push("/calls"), 800);
+                  }
+                },
+              );
+            callRowChannel = channel;
+            channel.subscribe();
+          }
         } else {
           // Callee waits for the caller_offer. Mic is requested AFTER the
           // offer is received so we don't tie up the device before we know
@@ -265,6 +337,10 @@ export function InCallScreen({ call, role, myUserId }: InCallScreenProps) {
       // path in handleHangup that broadcasts hangup first. But if React
       // unmounted us without the user clicking End (e.g. page navigation),
       // we still need to stop the mic + leave the channel.
+      if (callRowChannel) {
+        const supabase = createClient();
+        void supabase.removeChannel(callRowChannel).catch(() => {});
+      }
       if (!teardownInFlightRef.current) {
         teardownInFlightRef.current = true;
         try {

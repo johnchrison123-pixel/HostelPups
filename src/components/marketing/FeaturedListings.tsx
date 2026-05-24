@@ -3,24 +3,37 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { Container } from "@/components/ui/Container";
 import { ListingGrid } from "@/components/listings/ListingGrid";
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import type { Listing } from "@/lib/types";
 
 export async function FeaturedListings() {
-  const supabase = await createClient();
-  const { data: rows, error } = await supabase
-    .from("listings")
-    .select("*, room_types(*), photos:listing_photos(*)")
-    .eq("status", "live")
-    .eq("is_verified", true)
-    .order("updated_at", { ascending: false })
-    .limit(8);
+  // Cookie-less client so this component doesn't mark the host page as dynamic.
+  // Only reads public listings (status='live'); RLS allows anonymous read.
+  //
+  // Wrapped in try/catch because at build time the public client throws a
+  // raw `TypeError: fetch failed` if Supabase env vars point at an
+  // unreachable host (placeholder URL in CI, or temporarily-broken project).
+  // The `@supabase/ssr` cookie-bound client we used to use swallowed those
+  // errors into `{error}` — the vanilla client surfaces them as throws.
+  let featured: Listing[] = [];
+  try {
+    const supabase = createPublicClient();
+    const { data: rows, error } = await supabase
+      .from("listings")
+      .select("*, room_types(*), photos:listing_photos(*)")
+      .eq("status", "live")
+      .eq("is_verified", true)
+      .order("updated_at", { ascending: false })
+      .limit(8);
 
-  if (error) {
-    console.error("FeaturedListings supabase query failed:", error.message);
+    if (error) {
+      console.error("FeaturedListings supabase query failed:", error.message);
+    } else {
+      featured = (rows ?? []) as unknown as Listing[];
+    }
+  } catch (err) {
+    console.error("FeaturedListings supabase fetch threw:", err);
   }
-
-  const featured = (rows ?? []) as unknown as Listing[];
 
   return (
     <section

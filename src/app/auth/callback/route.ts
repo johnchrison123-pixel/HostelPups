@@ -38,6 +38,12 @@ export async function GET(request: Request) {
     }
   }
 
-  // Auth failed — bounce back to login with error param
-  return NextResponse.redirect(`${origin}/login?error=auth_callback_failed`);
+  // Auth failed — bounce back to login with error param, preserving the
+  // user's intended destination so the next attempt sends them through.
+  const errorUrl = new URL(`${origin}/login`);
+  errorUrl.searchParams.set("error", "auth_callback_failed");
+  if (next && next !== "/") {
+    errorUrl.searchParams.set("next", next);
+  }
+  return NextResponse.redirect(errorUrl.toString());
 }

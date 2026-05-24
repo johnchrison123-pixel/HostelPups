@@ -26,6 +26,7 @@ import {
   getOwnerStats,
   getOwnerInquiries,
 } from "@/lib/owner-queries";
+import { getCurrentUserCalls } from "@/lib/call-queries";
 import type { Listing, RoomType } from "@/lib/types";
 
 export const metadata: Metadata = buildMetadata({
@@ -83,14 +84,16 @@ export default async function OwnerDashboardPage() {
 
   const businessName = current.owner.business_name || "Your business";
 
-  const [listings, stats, inquiries] = await Promise.all([
+  const [listings, stats, inquiries, calls] = await Promise.all([
     getOwnerListings(),
     getOwnerStats(),
     getOwnerInquiries(),
+    getCurrentUserCalls(200),
   ]);
 
   const previewListings = listings.slice(0, 4);
   const previewInquiries = inquiries.slice(0, 3);
+  const callCount = calls.length;
 
   return (
     <OwnerLayout businessName={businessName}>
@@ -150,11 +153,10 @@ export default async function OwnerDashboardPage() {
           />
           <StatsCard
             label="Calls"
-            value="—"
-            caption="Phase 2 feature"
+            value={String(callCount)}
+            caption={callCount === 1 ? "1 call" : `${callCount} calls`}
             Icon={PhoneCall}
             tone="info"
-            placeholder
           />
         </div>
       </section>
@@ -366,7 +368,7 @@ export default async function OwnerDashboardPage() {
                     </td>
                     <td className="py-3 px-4 text-right">
                       <Link
-                        href="/owner/inquiries"
+                        href={`/owner/inquiries/${row.id}`}
                         className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-strong)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--color-ink)] hover:border-[var(--color-brand-500)] transition-colors"
                       >
                         <MessageSquare size={11} aria-hidden="true" />

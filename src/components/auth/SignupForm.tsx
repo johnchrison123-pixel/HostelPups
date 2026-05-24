@@ -12,7 +12,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/client";
-import { cn } from "@/lib/utils";
+import { cn, formatPrice } from "@/lib/utils";
+import { PRICING } from "@/lib/site";
 
 type Step = "details" | "check_email";
 
@@ -156,7 +157,7 @@ export function SignupForm() {
               Create your account
             </h1>
             <p className="mt-2 text-[var(--color-ink-muted)]">
-              Browse verified PGs free. Pay Rs 99 only to contact an owner.
+              Browse verified PGs free. Pay {formatPrice(PRICING.user.week.price)} only to contact an owner.
             </p>
           </>
         )}

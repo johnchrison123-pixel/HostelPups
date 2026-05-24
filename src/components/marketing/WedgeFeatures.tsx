@@ -9,6 +9,8 @@ import {
   Ban,
 } from "lucide-react";
 import { Container } from "@/components/ui/Container";
+import { PRICING } from "@/lib/site";
+import { formatPrice } from "@/lib/utils";
 
 const wedges = [
   {
@@ -54,8 +56,7 @@ const wedges = [
   {
     icon: Ban,
     title: "Zero Brokerage",
-    body:
-      "Pay ₹99 for a week. Talk to as many owners as you want. No 1-month-rent broker fees. Ever.",
+    body: `Pay ${formatPrice(PRICING.user.week.price)} for a week. Talk to as many owners as you want. No 1-month-rent broker fees. Ever.`,
     href: "/how-it-works#pricing",
     tint: "bg-rose-50 text-rose-700 border-rose-200",
   },

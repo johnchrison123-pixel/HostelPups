@@ -2,7 +2,7 @@ import * as React from "react";
 import Link from "next/link";
 import { Building2, Home, Heart, PawPrint, ArrowUpRight } from "lucide-react";
 import { Container } from "@/components/ui/Container";
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 
 interface Category {
   title: string;
@@ -18,36 +18,50 @@ interface Category {
 }
 
 export async function BrowseCategories() {
-  const supabase = await createClient();
+  // Cookie-less client so this component doesn't mark the host page as dynamic.
+  // Only reads public listing counts (status='live'); RLS allows anonymous read.
+  // Wrapped in try/catch — at build time a placeholder/unreachable Supabase
+  // URL throws a raw `TypeError: fetch failed` which crashes the static-gen
+  // worker (the vanilla `@supabase/supabase-js` client doesn't swallow it
+  // the way the SSR cookie-bound client did).
+  let pgCount = 0;
+  let hostelCount = 0;
+  let coupleCount = 0;
+  let petCount = 0;
+  try {
+    const supabase = createPublicClient();
 
-  // Run all four counts in parallel — none of them needs the others.
-  const [pgRes, hostelRes, coupleRes, petRes] = await Promise.all([
-    supabase
-      .from("listings")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "live")
-      .eq("type", "pg"),
-    supabase
-      .from("listings")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "live")
-      .eq("type", "hostel"),
-    supabase
-      .from("listings")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "live")
-      .contains("wedge_tags", ["couple"]),
-    supabase
-      .from("listings")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "live")
-      .contains("wedge_tags", ["pet"]),
-  ]);
+    // Run all four counts in parallel — none of them needs the others.
+    const [pgRes, hostelRes, coupleRes, petRes] = await Promise.all([
+      supabase
+        .from("listings")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "live")
+        .eq("type", "pg"),
+      supabase
+        .from("listings")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "live")
+        .eq("type", "hostel"),
+      supabase
+        .from("listings")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "live")
+        .contains("wedge_tags", ["couple"]),
+      supabase
+        .from("listings")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "live")
+        .contains("wedge_tags", ["pet"]),
+    ]);
 
-  const pgCount = pgRes.count ?? 0;
-  const hostelCount = hostelRes.count ?? 0;
-  const coupleCount = coupleRes.count ?? 0;
-  const petCount = petRes.count ?? 0;
+    pgCount = pgRes.count ?? 0;
+    hostelCount = hostelRes.count ?? 0;
+    coupleCount = coupleRes.count ?? 0;
+    petCount = petRes.count ?? 0;
+  } catch (err) {
+    console.error("BrowseCategories supabase fetch threw:", err);
+  }
 
   const CATEGORIES: Category[] = [
     {
@@ -143,9 +157,13 @@ export async function BrowseCategories() {
                 </div>
 
                 <div className="relative mt-4 flex items-center justify-between">
-                  <span className="text-xs font-semibold text-[var(--color-ink-muted)]">
-                    {c.count}+ verified
-                  </span>
+                  {c.count > 0 ? (
+                    <span className="text-xs font-semibold text-[var(--color-ink-muted)]">
+                      {c.count}+ verified
+                    </span>
+                  ) : (
+                    <span aria-hidden="true" />
+                  )}
                   <span className="inline-flex items-center gap-1 text-sm font-semibold text-[var(--color-brand-700)] group-hover:underline">
                     Browse
                     <ArrowUpRight size={14} aria-hidden="true" />

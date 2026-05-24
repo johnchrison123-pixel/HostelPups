@@ -1,6 +1,8 @@
 import * as React from "react";
 import { Search, MessageCircle, KeyRound } from "lucide-react";
 import { Container } from "@/components/ui/Container";
+import { PRICING } from "@/lib/site";
+import { formatPrice } from "@/lib/utils";
 
 const steps = [
   {
@@ -14,8 +16,7 @@ const steps = [
     n: "02",
     icon: MessageCircle,
     title: "Chat directly with owners",
-    body:
-      "Unlock contact details for just ₹99/week. No brokers. No middlemen. Talk to owners straight from the app.",
+    body: `Unlock contact details for just ${formatPrice(PRICING.user.week.price)}/week. No brokers. No middlemen. Talk to owners straight from the app.`,
   },
   {
     n: "03",

@@ -13,6 +13,11 @@ import { FaqSection } from "@/components/marketing/FaqSection";
 import { FAQ_ITEMS } from "@/lib/faq";
 import { buildMetadata, faqSchema } from "@/lib/seo";
 
+// ISR: regenerate page at most every 10 min if requested. Combined with the
+// cookie-less Supabase client in FeaturedListings/BrowseCategories, this lets
+// Next.js serve the homepage as static HTML (●) for great Core Web Vitals + SEO.
+export const revalidate = 600;
+
 export const metadata: Metadata = buildMetadata({
   title:
     "HostelPups — Find verified PGs, hostels & flats across India",

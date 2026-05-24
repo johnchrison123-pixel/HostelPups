@@ -25,6 +25,7 @@ import {
   getListingGradient,
   getListingMinPrice,
 } from "@/lib/mockListings";
+import { FavoriteButton } from "./FavoriteButton";
 
 type WedgeTone = "couple" | "bachelor" | "pet" | "student";
 
@@ -95,6 +96,8 @@ interface ListingCardProps {
   className?: string;
   /** Hide the city in the title row (helpful on city-scoped pages). */
   hideCity?: boolean;
+  /** When known server-side (e.g. /saved page) — pre-paints the heart filled. */
+  initialFavorited?: boolean;
 }
 
 export function ListingCard({
@@ -103,6 +106,7 @@ export function ListingCard({
   variant = "default",
   className,
   hideCity = false,
+  initialFavorited,
 }: ListingCardProps) {
   const cityName = CITY_NAMES[l.city] ?? l.city;
   const minPrice = getListingMinPrice(l);
@@ -251,16 +255,16 @@ export function ListingCard({
         </span>
 
         {/* Save / favourite button (top-right, separate from verified badge) */}
-        <button
-          type="button"
-          aria-label={`Save ${l.title} to favourites`}
+        <FavoriteButton
+          listingId={l.id}
+          listingTitle={l.title}
+          initialFavorited={initialFavorited}
+          signInNext={detailHref}
           className={cn(
-            "absolute z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/90 backdrop-blur-sm text-[var(--color-ink-muted)] shadow-sm hover:text-[var(--color-cta)] hover:bg-white transition-colors",
+            "absolute z-10 h-8 w-8",
             l.is_verified ? "top-12 right-3" : "top-3 right-3",
           )}
-        >
-          <Heart size={14} />
-        </button>
+        />
       </div>
 
       {/* Body */}

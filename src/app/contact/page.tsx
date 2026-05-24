@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Mail, MessageSquare, Building } from "lucide-react";
 import { Container } from "@/components/ui/Container";
+import { ContactForm } from "@/components/contact/ContactForm";
 import { buildMetadata } from "@/lib/seo";
 import { SITE } from "@/lib/site";
 
@@ -69,7 +70,14 @@ export default function ContactPage() {
         })}
       </div>
 
-      <div className="mt-16 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] p-8">
+      <section aria-labelledby="contact-form-heading" className="mt-12">
+        <h2 id="contact-form-heading" className="sr-only">
+          Contact form
+        </h2>
+        <ContactForm />
+      </section>
+
+      <div className="mt-12 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] p-8">
         <h2 className="font-bold text-lg">Office (Kochi HQ)</h2>
         <p className="mt-2 text-[var(--color-ink-muted)] leading-relaxed">
           HostelPups Technologies Pvt. Ltd.

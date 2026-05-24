@@ -46,14 +46,20 @@ export async function ensureOwnerRecord(
     .maybeSingle();
   if (existing) return existing;
 
-  // Pull business_name + city from auth metadata first; fall back to args.
+  // Pull business_name from auth metadata first; fall back to args.
+  // NOTE: city is collected at signup and stored in auth.users.raw_user_meta_data
+  // (set via signInWithOtp options.data). It is intentionally NOT written to
+  // public.owners — that table currently has no `city` column. If we ever need
+  // to associate the owner with a primary city, add it via expand-contract
+  // migration first, then re-enable here.
   const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
   const business_name =
     (typeof meta.business_name === "string" && meta.business_name) ||
     businessNameFallback ||
     "";
-  const city =
-    (typeof meta.city === "string" && meta.city) || cityFallback || "";
+  // Reference cityFallback so the caller-passed value isn't a typecheck error.
+  // It is intentionally unused on the insert (see note above).
+  void cityFallback;
 
   if (!business_name) {
     throw new Error(
@@ -76,9 +82,6 @@ export async function ensureOwnerRecord(
     kyc_status: "not_submitted",
     contact_phone: user.phone ?? "",
   };
-  // city was added in a later migration on RingIn — only include if non-empty
-  // so we don't break schemas that don't have the column yet.
-  if (city) insertPayload.city = city;
 
   const { data, error } = await supabase
     .from("owners")

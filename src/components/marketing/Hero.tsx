@@ -155,7 +155,7 @@ export function Hero() {
                 <span className="text-xs font-semibold text-[var(--color-ink-muted)] mr-1">
                   Type:
                 </span>
-                {PROPERTY_CHIPS.map((chip, idx) => (
+                {PROPERTY_CHIPS.map((chip) => (
                   <label
                     key={chip.value}
                     className="cursor-pointer select-none"
@@ -164,7 +164,6 @@ export function Hero() {
                       type="radio"
                       name="type"
                       value={chip.value}
-                      defaultChecked={idx === 0}
                       className="peer sr-only"
                     />
                     <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-strong)] bg-[var(--color-bg)] px-3 py-1.5 text-xs sm:text-sm font-medium text-[var(--color-ink-muted)] transition-all hover:border-[var(--color-brand-400)] hover:bg-[var(--color-brand-50)] peer-checked:bg-[var(--color-brand-500)] peer-checked:border-[var(--color-brand-500)] peer-checked:text-[var(--color-ink)] peer-checked:shadow-sm peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--color-brand-500)]">

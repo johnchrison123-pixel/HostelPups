@@ -3,11 +3,15 @@ import Link from "next/link";
 import { Check } from "lucide-react";
 import { Container } from "@/components/ui/Container";
 import { Button } from "@/components/ui/Button";
+import { PRICING } from "@/lib/site";
+import { formatPrice } from "@/lib/utils";
 
+// Prices come from the PRICING constant in src/lib/site.ts — single source of
+// truth. Change the rupee value there, every price chip on every page updates.
 const userPlans = [
   {
-    name: "7-Day Access",
-    price: 99,
+    name: PRICING.user.week.label,
+    price: PRICING.user.week.price,
     period: "/ week",
     features: [
       "Unlock unlimited owner contacts",
@@ -19,8 +23,8 @@ const userPlans = [
     cta: "Start with 7 days",
   },
   {
-    name: "30-Day Access",
-    price: 199,
+    name: PRICING.user.month.label,
+    price: PRICING.user.month.price,
     period: "/ month",
     features: [
       "Everything in weekly",
@@ -33,8 +37,8 @@ const userPlans = [
     badge: "★ Best Value",
   },
   {
-    name: "1-Year Access",
-    price: 499,
+    name: PRICING.user.year.label,
+    price: PRICING.user.year.price,
     period: "/ year",
     features: [
       "Everything in monthly",
@@ -70,7 +74,7 @@ export function PricingSection() {
               key={p.name}
               className={`relative rounded-2xl border-2 p-7 transition-all ${
                 p.highlighted
-                  ? "border-[var(--color-brand-500)] bg-[var(--color-bg-elevated)] shadow-[var(--shadow-lg)] scale-105"
+                  ? "border-[var(--color-brand-500)] bg-[var(--color-bg-elevated)] shadow-[var(--shadow-lg)]"
                   : "border-[var(--color-border)] bg-[var(--color-bg-elevated)] hover:border-[var(--color-brand-300)]"
               }`}
             >
@@ -82,7 +86,7 @@ export function PricingSection() {
 
               <h3 className="text-lg font-bold">{p.name}</h3>
               <div className="mt-3 flex items-baseline gap-1">
-                <span className="text-4xl font-black">₹{p.price}</span>
+                <span className="text-4xl font-black">{formatPrice(p.price)}</span>
                 <span className="text-[var(--color-ink-muted)] text-sm">{p.period}</span>
               </div>
 
@@ -111,7 +115,7 @@ export function PricingSection() {
         <p className="mt-8 text-center text-sm text-[var(--color-ink-subtle)]">
           Just need one contact?{" "}
           <Link href="/signup" className="text-[var(--color-brand-700)] font-semibold hover:underline">
-            Single unlock for ₹29
+            Single unlock for {formatPrice(PRICING.user.singleUnlock.price)}
           </Link>
           .
         </p>

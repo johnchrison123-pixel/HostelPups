@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { CityLanding } from "@/components/marketing/CityLanding";
 import { buildMetadata, breadcrumbSchema } from "@/lib/seo";
 
+// ISR: regenerate every 10 min. CityLanding uses the cookie-less public client.
+export const revalidate = 600;
+
 export const metadata: Metadata = buildMetadata({
   title: "PG in Calicut — Verified Hostels Near NIT & Cyberpark",
   description:

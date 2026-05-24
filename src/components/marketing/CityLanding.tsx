@@ -5,8 +5,9 @@ import { Container } from "@/components/ui/Container";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { ListingGrid } from "@/components/listings/ListingGrid";
-import { CITY_NAMES } from "@/lib/site";
-import { createClient } from "@/lib/supabase/server";
+import { CITY_NAMES, PRICING } from "@/lib/site";
+import { formatPrice } from "@/lib/utils";
+import { createPublicClient } from "@/lib/supabase/public";
 import type { Listing } from "@/lib/types";
 
 interface CityLandingProps {
@@ -25,36 +26,46 @@ export async function CityLanding({
   totalListings,
 }: CityLandingProps) {
   const cityName = CITY_NAMES[city] ?? city;
-  const supabase = await createClient();
+  // Cookie-less client so the route can be statically rendered with ISR.
+  // Public reads only (status='live'). All Supabase calls wrapped in
+  // try/catch — at build time a placeholder/unreachable Supabase URL throws
+  // a raw `TypeError: fetch failed` which would crash the static-gen worker.
+  let cityListings: Listing[] = [];
+  let totalCityListings = 0;
+  try {
+    const supabase = createPublicClient();
 
-  // Get up to 6 listings for this city (verified first, then most-recent)
-  const { data: cityListingsRows, error: cityListingsError } = await supabase
-    .from("listings")
-    .select("*, room_types(*), photos:listing_photos(*)")
-    .eq("city", city)
-    .eq("status", "live")
-    .order("is_verified", { ascending: false })
-    .order("updated_at", { ascending: false })
-    .limit(6);
+    // Get up to 6 listings for this city (verified first, then most-recent)
+    const { data: cityListingsRows, error: cityListingsError } = await supabase
+      .from("listings")
+      .select("*, room_types(*), photos:listing_photos(*)")
+      .eq("city", city)
+      .eq("status", "live")
+      .order("is_verified", { ascending: false })
+      .order("updated_at", { ascending: false })
+      .limit(6);
 
-  if (cityListingsError) {
-    console.error("CityLanding cityListings query failed:", cityListingsError.message);
+    if (cityListingsError) {
+      console.error("CityLanding cityListings query failed:", cityListingsError.message);
+    } else {
+      cityListings = (cityListingsRows ?? []) as unknown as Listing[];
+    }
+
+    // Total count of live listings in this city
+    const { count: totalCityCount, error: countError } = await supabase
+      .from("listings")
+      .select("*", { count: "exact", head: true })
+      .eq("city", city)
+      .eq("status", "live");
+
+    if (countError) {
+      console.error("CityLanding count query failed:", countError.message);
+    } else {
+      totalCityListings = totalCityCount ?? 0;
+    }
+  } catch (err) {
+    console.error("CityLanding supabase fetch threw:", err);
   }
-
-  const cityListings = (cityListingsRows ?? []) as unknown as Listing[];
-
-  // Total count of live listings in this city
-  const { count: totalCityCount, error: countError } = await supabase
-    .from("listings")
-    .select("*", { count: "exact", head: true })
-    .eq("city", city)
-    .eq("status", "live");
-
-  if (countError) {
-    console.error("CityLanding count query failed:", countError.message);
-  }
-
-  const totalCityListings = totalCityCount ?? 0;
 
   const defaultIntro = `Find verified PGs, hostels, and rental flats in ${cityName}. From budget-friendly student PGs near colleges to couple-friendly flats in tech parks — all verified, all direct from owners. No brokers. No hidden fees.`;
 
@@ -229,7 +240,7 @@ export async function CityLanding({
             <li className="rounded-2xl bg-[var(--color-bg-elevated)] border border-[var(--color-border)] p-6">
               <h3 className="font-bold mb-2">Direct Chat</h3>
               <p className="text-sm text-[var(--color-ink-muted)]">
-                Unlock contacts for ₹99/week. Talk to {cityName} owners directly. Zero broker fees.
+                Unlock contacts for {formatPrice(PRICING.user.week.price)}/week. Talk to {cityName} owners directly. Zero broker fees.
               </p>
             </li>
             <li className="rounded-2xl bg-[var(--color-bg-elevated)] border border-[var(--color-border)] p-6">

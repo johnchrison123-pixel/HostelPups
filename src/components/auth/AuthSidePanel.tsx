@@ -9,6 +9,8 @@ import {
   TrendingUp,
   Sparkles,
 } from "lucide-react";
+import { PRICING } from "@/lib/site";
+import { formatPrice } from "@/lib/utils";
 
 interface AuthSidePanelProps {
   flavor: "renter" | "owner";
@@ -16,13 +18,13 @@ interface AuthSidePanelProps {
 
 const RENTER_BULLETS = [
   "Talk directly to verified owners — no broker calls",
-  "Zero brokerage. Ever. Pay only Rs 99/week to unlock.",
+  `Zero brokerage. Ever. Pay only ${formatPrice(PRICING.user.week.price)}/week to unlock.`,
   "Move-in guarantee — refund if it isn't as described",
 ];
 
 const OWNER_BULLETS = [
   "Reach 10,000+ verified renters actively searching",
-  "Boost listings to top of search from Rs 99/day",
+  `Boost listings to top of search from ${formatPrice(PRICING.owner.boost.perDay)}/day`,
   "We handle KYC + photoshoot on the full-service tier",
 ];
 

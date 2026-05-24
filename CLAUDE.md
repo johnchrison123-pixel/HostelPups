@@ -25,6 +25,7 @@ These rules override default Claude behavior. Read before every task.
 | 2026-05-21 | "do not make any repetitive mistakes which you already make" |
 | 2026-05-21 | "give me clarification on Google Search Console + GA4 setup, and on npm run dev visual design feedback step" |
 | 2026-05-21 | "CANT YOU MAKE IT IN VERCEL AND GITHUB ADD?" — push project to GitHub + deploy to Vercel for live preview |
+| 2026-05-21 | GitHub repo URL provided: https://github.com/johnchrison123-pixel/HostelPups — push code + link Vercel for auto-deploys |
 
 *New rule: append every future instruction to this table.*
 
@@ -253,10 +254,50 @@ Strike system in chat:
 All prices live in `PRICING` constant in `src/lib/site.ts`. Never hardcode rupee amounts in components — import from there.
 
 ## Deployment
-- **Vercel auto-deploys** from `main` branch
-- Buy both domains: `hostelpups.in` (primary) + `hostelpups.com` (redirect)
-- Add Google Search Console + Google Analytics 4 before launch
-- Submit sitemap.xml to Google Search Console
+
+### Live URLs
+- **Production:** https://hostelpups.vercel.app
+- **GitHub:** https://github.com/johnchrison123-pixel/HostelPups
+- **Vercel dashboard:** https://vercel.com/johnchrison123-pixels-projects/hostelpups
+- **Vercel scope:** `johnchrison123-pixels-projects`
+- **Branch:** `main` (auto-deploys to production)
+
+### Workflow — how to deploy a change
+```powershell
+cd "C:\Users\johnc\Desktop\HostelPups\hostelpups"
+# 1. Make code changes
+# 2. Test locally if needed: npm run dev
+# 3. Verify build: npm run build
+git add .
+git commit -m "feat: <short description of what changed>"
+git push origin main
+# 4. Vercel auto-deploys in ~1-2 minutes. Watch progress at the dashboard URL above.
+```
+
+### Commit message style
+Follow conventional commits (consistent with RingIn):
+- `feat: ` — new feature or page
+- `fix: ` — bug fix
+- `refactor: ` — code refactor with no behavior change
+- `style: ` — visual/CSS only
+- `docs: ` — documentation
+- `chore: ` — config, deps, tooling
+- `seo: ` — SEO-specific change (meta, schema, sitemap, etc.)
+
+### Pre-launch checklist
+- [ ] Buy both domains: `hostelpups.in` (primary) + `hostelpups.com` (redirect)
+- [ ] Add custom domains in Vercel dashboard → Settings → Domains
+- [ ] Set up Google Search Console (DNS TXT verification for both domains)
+- [ ] Set up Google Analytics 4 + add `G-XXXXXXXXXX` to `.env.local` as `NEXT_PUBLIC_GA_ID`
+- [ ] Submit sitemap.xml to Google Search Console
+- [ ] Set up Supabase project + add keys to Vercel env vars (Project Settings → Environment Variables)
+- [ ] Set up Razorpay account + add keys to Vercel env vars
+- [ ] Set up MSG91 + add keys
+
+### Environment variables — where they live
+- **Local development:** `.env.local` (gitignored, never committed)
+- **Production:** Vercel dashboard → Project → Settings → Environment Variables
+- Variables prefixed `NEXT_PUBLIC_` are exposed to the browser. Everything else is server-only.
 
 ## Key Decisions to Confirm Before Phase 1
 1. ✅ **Stack:** Next.js + TypeScript + Tailwind 4 + Supabase

@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/client";
+import { createAccount } from "@/lib/auth-actions";
 import { cn } from "@/lib/utils";
 import { CITY_NAMES } from "@/lib/site";
 
@@ -155,37 +156,43 @@ export function SignupForm() {
     }
 
     setSubmitting(true);
-    const supabase = createClient();
-    const { data, error: authError } = await supabase.auth.signUp({
+
+    // Use the server-side admin createAccount() action — bypasses email
+    // domain validation, disposable-email blocks, and "Confirm email"
+    // requirement. Account is auto-confirmed and ready to log in.
+    const createResult = await createAccount({
       email: trimmedEmail,
       password,
-      options: {
-        data: {
-          name: trimmedName,
-          phone: `+91${phone}`,
-          city,
-          intent: "renter",
-        },
-      },
+      name: trimmedName,
+      phone,
+      city,
+      intent: "renter",
+    });
+
+    if (!createResult.ok) {
+      setSubmitting(false);
+      setError(createResult.error);
+      return;
+    }
+
+    // Account exists + confirmed. Now sign in to set the browser session cookie.
+    const supabase = createClient();
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: trimmedEmail,
+      password,
     });
     setSubmitting(false);
 
-    if (authError) {
-      setError(friendlyError(authError));
+    if (signInError) {
+      // Very unlikely now — account was just created with this password.
+      setError(friendlyError(signInError));
       return;
     }
 
-    // If the founder leaves "Confirm email" ON in Supabase, no session is
-    // returned and we show a check-your-email message instead of redirecting.
-    if (data.session) {
-      // Honor ?next= so signing up from a gated CTA (e.g. "Save listing")
-      // sends the new user back to where they were headed.
-      router.replace(nextPath ?? "/");
-      router.refresh();
-      return;
-    }
-
-    setPendingEmail(trimmedEmail);
+    // Honor ?next= so signing up from a gated CTA (e.g. "Save listing")
+    // sends the new user back to where they were headed.
+    router.replace(nextPath ?? "/");
+    router.refresh();
   }
 
   // ---- Pending state: email confirmation required ----

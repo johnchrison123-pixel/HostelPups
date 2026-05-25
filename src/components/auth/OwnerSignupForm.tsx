@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/client";
+import { createAccount } from "@/lib/auth-actions";
 import { CITY_NAMES, FULL_SERVICE_CITIES } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
@@ -165,44 +166,47 @@ export function OwnerSignupForm() {
     }
 
     setSubmitting(true);
-    const supabase = createClient();
-    const { data, error: authError } = await supabase.auth.signUp({
+
+    // Use server-side admin createAccount — bypasses email validation +
+    // disposable-email blocks + "Confirm email" requirement.
+    const createResult = await createAccount({
       email: trimmedEmail,
       password,
-      options: {
-        data: {
-          // `name` is the personal/contact name when given, otherwise the
-          // business name. The DB trigger writes this to profiles.name.
-          name: trimmedContact || trimmedBusiness,
-          business_name: trimmedBusiness,
-          phone: `+91${phone}`,
-          city,
-          intent: "owner",
-        },
-      },
+      name: trimmedContact || trimmedBusiness,
+      phone,
+      city,
+      intent: "owner",
+      business_name: trimmedBusiness,
+    });
+
+    if (!createResult.ok) {
+      setSubmitting(false);
+      setError(createResult.error);
+      return;
+    }
+
+    // Account auto-confirmed. Now sign in to set browser session cookie.
+    const supabase = createClient();
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: trimmedEmail,
+      password,
     });
     setSubmitting(false);
 
-    if (authError) {
-      setError(friendlyError(authError));
+    if (signInError) {
+      setError(friendlyError(signInError));
       return;
     }
 
-    if (data.session) {
-      // Owners always need to complete onboarding before doing anything
-      // else, so we always route them through /owner/onboarding first.
-      // After onboarding finishes, the OwnerOnboardingFlow will honor a
-      // pending `?next=` via its own redirect (or fall back to the
-      // dashboard).
-      const dest = nextPath
-        ? `/owner/onboarding?next=${encodeURIComponent(nextPath)}`
-        : "/owner/onboarding";
-      router.replace(dest);
-      router.refresh();
-      return;
-    }
-
-    setPendingEmail(trimmedEmail);
+    // Owners always need to complete onboarding before doing anything else,
+    // so we always route them through /owner/onboarding first. After
+    // onboarding finishes, the OwnerOnboardingFlow will honor a pending
+    // `?next=` via its own redirect (or fall back to the dashboard).
+    const dest = nextPath
+      ? `/owner/onboarding?next=${encodeURIComponent(nextPath)}`
+      : "/owner/onboarding";
+    router.replace(dest);
+    router.refresh();
   }
 
   if (pendingEmail) {

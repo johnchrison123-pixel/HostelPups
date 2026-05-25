@@ -52,6 +52,7 @@ These rules override default Claude behavior. Read before every task.
 | 2026-05-25 | (screenshot — still trying john@test.com on /login) — repeat: use real Gmail address, not test.com. The "Looks good" hint only checks syntax, not whether domain is valid. |
 | 2026-05-25 | "please we don't need an email to verify or confirm we just wanted to login to test our feature. so not giving public access now" — show how to create test users directly via Supabase Dashboard (bypasses signup validation). |
 | 2026-05-25 | "no I wanted it in login page i don't want to do it in supabase. adjust the code for me. later we will make changes. easy login now without restrictions" — switch signup to use auth.admin.createUser server action (bypasses email validation, auto-confirms). |
+| 2026-05-25 | "there should be options like calls messages saved" — add Messages/Calls/Saved/Profile links to Header user dropdown (currently only Dashboard + Logout). |
 
 *New rule: append every future instruction to this table.*
 

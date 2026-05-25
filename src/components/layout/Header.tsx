@@ -2,7 +2,19 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Menu, X, Search, LogOut, LayoutDashboard, User as UserIcon } from "lucide-react";
+import {
+  Menu,
+  X,
+  Search,
+  LogOut,
+  LayoutDashboard,
+  User as UserIcon,
+  Heart,
+  MessageCircle,
+  Phone,
+  Building2,
+  ListChecks,
+} from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { Container } from "@/components/ui/Container";
 import { Button } from "@/components/ui/Button";
@@ -14,6 +26,32 @@ const navLinks = [
   { href: "/couple-friendly-pg/kochi", label: "Couple-Friendly" },
   { href: "/pet-friendly-pg/kochi", label: "Pet-Friendly" },
   { href: "/for-owners", label: "List Your Property" },
+];
+
+/**
+ * Account menu items shown in the user dropdown + mobile drawer
+ * after a user is logged in. Two flavors — renter and owner.
+ */
+type AccountItem = {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ size?: number; className?: string; "aria-hidden"?: boolean }>;
+};
+
+const RENTER_ACCOUNT_ITEMS: AccountItem[] = [
+  { href: "/search", label: "Search PGs", icon: Search },
+  { href: "/saved", label: "Saved listings", icon: Heart },
+  { href: "/messages", label: "Messages", icon: MessageCircle },
+  { href: "/calls", label: "Calls", icon: Phone },
+  { href: "/profile", label: "My profile", icon: UserIcon },
+];
+
+const OWNER_ACCOUNT_ITEMS: AccountItem[] = [
+  { href: "/owner/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/owner/listings", label: "My listings", icon: ListChecks },
+  { href: "/owner/inquiries", label: "Inquiries", icon: MessageCircle },
+  { href: "/owner/calls", label: "Calls", icon: Phone },
+  { href: "/owner/profile", label: "Business profile", icon: Building2 },
 ];
 
 /**
@@ -98,8 +136,8 @@ export function Header() {
   }
 
   const displayName = user ? getDisplayName(user) : "";
-  const dashboardHref =
-    user && isOwnerIntent(user) ? "/owner/dashboard" : "/search";
+  const isOwner = user ? isOwnerIntent(user) : false;
+  const accountItems = isOwner ? OWNER_ACCOUNT_ITEMS : RENTER_ACCOUNT_ITEMS;
 
   return (
     <header
@@ -164,30 +202,44 @@ export function Header() {
                   {profileMenuOpen && (
                     <div
                       role="menu"
-                      className="absolute right-0 mt-2 w-56 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-[var(--shadow-md)] overflow-hidden"
+                      className="absolute right-0 mt-2 w-64 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-[var(--shadow-md)] overflow-hidden"
                     >
-                      <div className="px-3 py-2 border-b border-[var(--color-border)]">
+                      {/* Identity strip */}
+                      <div className="px-3 py-2.5 border-b border-[var(--color-border)] bg-[var(--color-surface)]">
                         <p className="text-xs text-[var(--color-ink-subtle)] uppercase tracking-wider font-semibold">
                           Signed in as
                         </p>
                         <p className="text-sm font-medium truncate">{user.email}</p>
                       </div>
-                      <Link
-                        href={dashboardHref}
-                        onClick={() => setProfileMenuOpen(false)}
-                        role="menuitem"
-                        className="flex items-center gap-2 px-3 py-2.5 text-sm font-medium hover:bg-[var(--color-brand-100)]"
-                      >
-                        <LayoutDashboard size={14} aria-hidden="true" />
-                        {isOwnerIntent(user) ? "Owner dashboard" : "Search PGs"}
-                      </Link>
+
+                      {/* Account links */}
+                      <ul className="py-1">
+                        {accountItems.map((item) => {
+                          const Icon = item.icon;
+                          return (
+                            <li key={item.href}>
+                              <Link
+                                href={item.href}
+                                onClick={() => setProfileMenuOpen(false)}
+                                role="menuitem"
+                                className="flex items-center gap-2.5 px-3 py-2 text-sm font-medium hover:bg-[var(--color-brand-100)] transition-colors"
+                              >
+                                <Icon size={15} aria-hidden={true} />
+                                {item.label}
+                              </Link>
+                            </li>
+                          );
+                        })}
+                      </ul>
+
+                      {/* Logout */}
                       <button
                         type="button"
                         role="menuitem"
                         onClick={handleLogout}
-                        className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-left hover:bg-[var(--color-brand-100)] border-t border-[var(--color-border)]"
+                        className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium text-left hover:bg-[var(--color-brand-100)] border-t border-[var(--color-border)] text-[var(--color-cta)]"
                       >
-                        <LogOut size={14} aria-hidden="true" />
+                        <LogOut size={15} aria-hidden="true" />
                         Logout
                       </button>
                     </div>
@@ -250,10 +302,10 @@ export function Header() {
                 </li>
               ))}
             </ul>
-            <div className="flex flex-col gap-2 p-4 border-t border-[var(--color-border)]">
+            <div className="flex flex-col gap-1 p-4 border-t border-[var(--color-border)]">
               {!authReady ? null : user ? (
                 <>
-                  <div className="flex items-center gap-2 px-1 pb-1">
+                  <div className="flex items-center gap-2 px-1 pb-2">
                     <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-brand-500)] text-[var(--color-ink)] font-black">
                       {displayName.charAt(0).toUpperCase() || "U"}
                     </span>
@@ -264,26 +316,31 @@ export function Header() {
                       </p>
                     </div>
                   </div>
-                  <Button
-                    href={dashboardHref}
-                    variant="primary"
-                    fullWidth
-                    onClick={() => setOpen(false)}
-                  >
-                    <LayoutDashboard size={16} aria-hidden="true" />
-                    {isOwnerIntent(user) ? "Owner dashboard" : "Search PGs"}
-                  </Button>
-                  <Button
+                  {accountItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setOpen(false)}
+                        className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-base font-medium hover:bg-[var(--color-brand-100)] transition-colors"
+                      >
+                        <Icon size={18} aria-hidden={true} />
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                  <button
+                    type="button"
                     onClick={async () => {
                       setOpen(false);
                       await handleLogout();
                     }}
-                    variant="outline"
-                    fullWidth
+                    className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-base font-medium hover:bg-[var(--color-brand-100)] text-[var(--color-cta)] text-left mt-1 border-t border-[var(--color-border)] pt-3"
                   >
-                    <LogOut size={16} aria-hidden="true" />
+                    <LogOut size={18} aria-hidden="true" />
                     Logout
-                  </Button>
+                  </button>
                 </>
               ) : (
                 <>

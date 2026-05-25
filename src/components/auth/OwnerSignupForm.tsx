@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Phone,
   User,
@@ -18,8 +18,20 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/client";
-import { CITY_NAMES, KERALA_CITIES, FULL_SERVICE_CITIES } from "@/lib/site";
+import { CITY_NAMES, FULL_SERVICE_CITIES } from "@/lib/site";
 import { cn } from "@/lib/utils";
+
+/**
+ * Validate the `?next=` redirect param so we don't open up the signup flow
+ * to arbitrary open-redirects.
+ */
+function safeNext(raw: string | null): string | null {
+  if (!raw) return null;
+  if (!raw.startsWith("/")) return null;
+  if (raw.startsWith("//")) return null;
+  if (raw.startsWith("/\\")) return null;
+  return raw;
+}
 
 /**
  * Owner signup — single-step password auth.
@@ -37,10 +49,12 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^[6-9]\d{9}$/;
 const PASSWORD_MIN = 6;
 
-// Use the union of full-service cities + Kerala cities so the dropdown
-// matches the FOUNDER's geographic launch plan. Sorted with full-service
-// first, then alphabetical Kerala.
-const ALL_CITIES = Array.from(new Set([...FULL_SERVICE_CITIES, ...KERALA_CITIES])) as string[];
+// Show every supported city so owners outside Kochi / Bangalore / Chennai
+// (e.g. Mumbai, Delhi, Hyderabad) can sign up too — they default to the
+// self-serve tier, but at least the dropdown lets them through. The
+// `FULL_SERVICE_SET` flag below toggles the "we'll do KYC + photoshoot"
+// helper copy when one of the three launch cities is picked.
+const ALL_CITIES = Object.keys(CITY_NAMES);
 const FULL_SERVICE_SET = new Set<string>(FULL_SERVICE_CITIES as readonly string[]);
 
 function normalisePhoneInput(raw: string) {
@@ -78,6 +92,8 @@ function passwordStrength(pw: string): { label: string; tone: "weak" | "ok" | "s
 
 export function OwnerSignupForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextPath = safeNext(searchParams.get("next"));
 
   const [businessName, setBusinessName] = React.useState("");
   const [contactName, setContactName] = React.useState("");
@@ -173,7 +189,15 @@ export function OwnerSignupForm() {
     }
 
     if (data.session) {
-      router.replace("/owner/onboarding");
+      // Owners always need to complete onboarding before doing anything
+      // else, so we always route them through /owner/onboarding first.
+      // After onboarding finishes, the OwnerOnboardingFlow will honor a
+      // pending `?next=` via its own redirect (or fall back to the
+      // dashboard).
+      const dest = nextPath
+        ? `/owner/onboarding?next=${encodeURIComponent(nextPath)}`
+        : "/owner/onboarding";
+      router.replace(dest);
       router.refresh();
       return;
     }

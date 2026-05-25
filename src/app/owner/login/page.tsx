@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Container } from "@/components/ui/Container";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { AuthSidePanel } from "@/components/auth/AuthSidePanel";
@@ -22,7 +23,10 @@ export default function OwnerLoginPage() {
           <div className="mb-6">
             <AuthModeToggle active="business" mode="login" />
           </div>
-          <LoginForm flavor="owner" ownerLoginHref="/login" />
+          {/* Suspense for useSearchParams (see /login page note). */}
+          <Suspense fallback={null}>
+            <LoginForm flavor="owner" ownerLoginHref="/login" />
+          </Suspense>
         </div>
 
         {/* Right column — owner-focused value prop */}

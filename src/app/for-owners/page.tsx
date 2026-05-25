@@ -4,11 +4,16 @@ import { Container } from "@/components/ui/Container";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { buildMetadata } from "@/lib/seo";
+import { PRICING } from "@/lib/site";
+import { formatPrice } from "@/lib/utils";
 
+// NOTE: meta description is a static string. Prices below are sourced from
+// PRICING — keep them in sync with `src/lib/site.ts` PRICING.owner when the
+// numbers change.
 export const metadata: Metadata = buildMetadata({
   title: "List Your PG / Hostel / Flat — HostelPups for Owners",
   description:
-    "Reach 10,000+ verified renters in Kochi, Bangalore, Chennai. ₹1,999 full-service with photoshoot + KYC + verification. ₹999/year self-serve. Founding owner pricing.",
+    "Reach 10,000+ verified renters in Kochi, Bangalore, Chennai. Full-service includes photoshoot + KYC + verification. Self-serve from Rs 999/year. Founding owner pricing.",
   path: "/for-owners",
 });
 
@@ -16,12 +21,12 @@ const ownerPlans = [
   {
     id: "full-service",
     name: "Full Service",
-    price: "₹1,999",
-    pricePeriod: "first year • ₹999/year renewal",
+    price: formatPrice(PRICING.owner.fullService.firstYear),
+    pricePeriod: `first year • ${formatPrice(PRICING.owner.fullService.renewal)}/year renewal`,
     description: "For PG & hostel owners in Kochi, Bangalore & Chennai",
     badge: "Most Popular",
     features: [
-      "Professional photoshoot included (worth ₹2,499)",
+      "Professional photoshoot included (worth Rs 2,499)",
       "On-ground KYC + in-person verification",
       "Unlimited listings",
       "Verified badge from day 1",
@@ -36,17 +41,17 @@ const ownerPlans = [
   {
     id: "self-serve",
     name: "Self Serve",
-    price: "₹999",
+    price: formatPrice(PRICING.owner.selfServe.yearly),
     pricePeriod: "per year",
     description: "For owners in any other Indian city",
     badge: null,
     features: [
-      "Up to 3 active listings",
+      `Up to ${PRICING.owner.selfServe.maxActiveListings} active listings`,
       "Upload your own photos (we provide upload guidelines)",
       "Receive unlimited inquiries",
       "Standard search visibility",
-      "Optional verification badge (₹799/yr add-on)",
-      "Boost any listing for ₹99/day",
+      `Optional verification badge (${formatPrice(PRICING.owner.verification.yearly)}/yr add-on)`,
+      `Boost any listing for ${formatPrice(PRICING.owner.boost.perDay)}/day`,
       "Email support",
     ],
     cta: "Start Self-Serve",
@@ -58,20 +63,20 @@ const addOns = [
   {
     icon: ShieldCheck,
     title: "Verification Badge",
-    price: "₹799 / year",
+    price: `${formatPrice(PRICING.owner.verification.yearly)} / year`,
     body: "Video call + live location + Google research. Verified owners get 3.2x more inquiries.",
   },
   {
     icon: Zap,
     title: "Boost Listing",
-    price: "₹99 / day",
-    body: "Top of search results in your area for 24 hours. Or ₹499/week, ₹1,499/month.",
+    price: `${formatPrice(PRICING.owner.boost.perDay)} / day`,
+    body: `Top of search results in your area for 24 hours. Or ${formatPrice(PRICING.owner.boost.perWeek)}/week, ${formatPrice(PRICING.owner.boost.perMonth)}/month.`,
   },
   {
     icon: Camera,
     title: "Professional Photoshoot",
-    price: "₹1,499 add-on",
-    body: "For self-serve owners who want pro photos. Cost: ₹500-800 photographer + your margin. 30% more click-throughs.",
+    price: "Rs 1,499 add-on",
+    body: "For self-serve owners who want pro photos. Cost: Rs 500-800 photographer + your margin. 30% more click-throughs.",
   },
 ];
 

@@ -48,11 +48,24 @@ export async function ensureOwnerRecord(
 
   // Pull business_name from auth metadata first; fall back to args.
   // NOTE: city is collected at signup and stored in auth.users.raw_user_meta_data
-  // (set via signInWithOtp options.data). It is intentionally NOT written to
+  // (set via signUp options.data). It is intentionally NOT written to
   // public.owners — that table currently has no `city` column. If we ever need
   // to associate the owner with a primary city, add it via expand-contract
   // migration first, then re-enable here.
   const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+
+  // Privilege check — block renters from silently escalating to owner. Default
+  // missing intent to 'renter' so legacy/no-metadata accounts can't slip
+  // through. If a row was created out-of-band (admin grant) the early-return
+  // above already covered them.
+  const intent =
+    typeof meta.intent === "string" ? meta.intent : "renter";
+  if (intent !== "owner") {
+    throw new Error(
+      "This account isn't set up as an owner. Please sign up at /owner/signup to create an owner account.",
+    );
+  }
+
   const business_name =
     (typeof meta.business_name === "string" && meta.business_name) ||
     businessNameFallback ||

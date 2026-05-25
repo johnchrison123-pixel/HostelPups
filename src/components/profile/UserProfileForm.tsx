@@ -128,8 +128,8 @@ export function UserProfileForm({
               className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 h-12 text-base text-[var(--color-ink-muted)] outline-none cursor-not-allowed"
             />
             <p className="mt-1.5 text-xs text-[var(--color-ink-muted)]">
-              We send magic links to this address. Email changes require a
-              support request for now.
+              We&apos;ll use this for password reset and important account
+              updates.
             </p>
           </div>
         </div>

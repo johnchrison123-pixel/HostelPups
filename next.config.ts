@@ -30,8 +30,12 @@ const nextConfig: NextConfig = {
           { key: "X-Frame-Options", value: "SAMEORIGIN" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           {
+            // First-party allowlist: the site itself can request mic + camera
+            // (needed for WebRTC voice calls today + future video features).
+            // An empty allowlist `()` would block getUserMedia EVERYWHERE,
+            // including the first-party page — that breaks the call flow.
             key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=(self)",
+            value: "camera=(self), microphone=(self), geolocation=(self)",
           },
         ],
       },

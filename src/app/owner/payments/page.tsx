@@ -50,10 +50,10 @@ export default async function OwnerPaymentsPage() {
               Payment history is coming with Razorpay integration
             </h2>
             <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
-              Once Razorpay billing is wired up in Phase 2, every charge —
-              annual listing fee, verification badge, boost campaigns — will
-              show up here with downloadable invoices for GST. Until then,
-              your subscription is on the house (founding-owner promo).
+              When Razorpay billing goes live, every charge — annual listing
+              fee, verification badge, boost campaigns — will show up here
+              with downloadable invoices for GST. Until then, your
+              subscription is on the house (founding-owner promo).
             </p>
 
             <ul

@@ -121,7 +121,7 @@ export function InCallScreen({ call, role, myUserId }: InCallScreenProps) {
     connectionTimeoutRef.current = setTimeout(() => {
       setConnState("failed");
       setErrorMsg(
-        "Connection failed. The other person's network may be too restrictive (no TURN server configured).",
+        "Couldn't connect — your network may be blocking calls. Try again from a different network or contact support.",
       );
       void failCall(call.id).catch(() => {});
     }, CONNECTION_TIMEOUT_MS);

@@ -46,6 +46,9 @@ These rules override default Claude behavior. Read before every task.
 | 2026-05-25 | "Remove Resend option from beginning. Switch to login with phone number. Test dummy number and OTP like we used for RingIn app." — pivot from email magic-link to phone OTP using Supabase test phone numbers (bypasses SMS provider for testing). |
 | 2026-05-25 | Rewrite LoginForm / SignupForm / OwnerSignupForm / AuthSidePanel to use Supabase phone OTP (signInWithOtp + verifyOtp). +91 prefix, 6-digit OTP, two-step (login) / three-step (signup) flows. Keep /auth/callback for future Google OAuth. |
 | 2026-05-25 | "Switch to password auth. Signup form: name + email + phone + password + city + T&C tick. No phone verification for now — just create account + log in + redirect to home. Login: email OR phone + password. Same for business/owner." |
+| 2026-05-25 | "is there any way to give you access to our supabase, vercel and resend so you can do everything yourself?" — yes, partial autonomy possible via API tokens. Document trade-offs + how. |
+| 2026-05-25 | "will john@test.com work?" (login error screenshot) — no, Supabase rejects fake/test domains. Use a real email or Gmail alias. |
+| 2026-05-25 | "find all bugs problems, features and functions that are not working. find all the issues across the app" — comprehensive audit + fix pass v2 (since password auth pivot) |
 
 *New rule: append every future instruction to this table.*
 

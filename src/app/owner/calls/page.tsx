@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { PhoneCall, Lock, ShieldCheck, Volume2 } from "lucide-react";
 import { OwnerLayout } from "@/components/owner/OwnerSidebar";
 import { CallHistoryList } from "@/components/call/CallHistoryList";
@@ -15,8 +16,19 @@ export const metadata: Metadata = buildMetadata({
 });
 
 export default async function OwnerCallsPage() {
+  // Auth gate: mirror the other /owner/* pages so anonymous visitors get
+  // bounced to login, and renters can't see the owner-flavoured sidebar.
   const user = await getCurrentUser();
-  const calls = user ? await getCurrentUserCalls(100) : [];
+  if (!user) {
+    redirect("/owner/login?next=/owner/calls");
+  }
+  const intent =
+    (user.user_metadata?.intent as string | undefined) ?? "renter";
+  if (intent !== "owner") {
+    redirect("/owner/login?next=/owner/calls");
+  }
+
+  const calls = await getCurrentUserCalls(100);
 
   return (
     <OwnerLayout>
@@ -69,19 +81,11 @@ export default async function OwnerCallsPage() {
         </div>
       </section>
 
-      {!user ? (
-        <div className="rounded-2xl border border-dashed border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-8 text-center">
-          <p className="text-sm text-[var(--color-ink-muted)]">
-            Sign in to view your call history.
-          </p>
-        </div>
-      ) : (
-        <CallHistoryList
-          calls={calls}
-          currentUserId={user.id}
-          perspective="owner"
-        />
-      )}
+      <CallHistoryList
+        calls={calls}
+        currentUserId={user.id}
+        perspective="owner"
+      />
     </OwnerLayout>
   );
 }

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Container } from "@/components/ui/Container";
 import { buildMetadata } from "@/lib/seo";
+import { PRICING } from "@/lib/site";
+import { formatPrice } from "@/lib/utils";
 
 export const metadata: Metadata = buildMetadata({
   title: "About HostelPups",
@@ -38,10 +40,12 @@ export default function AboutPage() {
         </p>
 
         <p>
-          And we charge renters honest, one-time prices — ₹99 for a week,
-          ₹199 for a month, ₹499 for a year — instead of monthly subscriptions
-          you forget to cancel. PG hunting is one-shot use. So we built one-shot
-          pricing.
+          And we charge renters honest, one-time prices —{" "}
+          {formatPrice(PRICING.user.week.price)} for a week,{" "}
+          {formatPrice(PRICING.user.month.price)} for a month,{" "}
+          {formatPrice(PRICING.user.year.price)} for a year — instead of
+          monthly subscriptions you forget to cancel. PG hunting is one-shot
+          use. So we built one-shot pricing.
         </p>
 
         <h2 className="text-2xl font-bold text-[var(--color-ink)] mt-12">

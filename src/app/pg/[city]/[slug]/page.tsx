@@ -10,7 +10,6 @@ import {
   Car,
   UtensilsCrossed,
   Heart,
-  Share2,
   Snowflake,
   Dumbbell,
   ShieldAlert,
@@ -43,6 +42,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { formatPrice } from "@/lib/utils";
 import { InquiryStartButton } from "@/components/chat/InquiryStartButton";
 import { CallButton } from "@/components/call/CallButton";
+import { FavoriteButton } from "@/components/listings/FavoriteButton";
+import { ShareButton } from "@/components/listings/ShareButton";
 import type { Listing, WedgeTag, PropertyType, RoomType } from "@/lib/types";
 
 type Props = { params: Promise<{ city: string; slug: string }> };
@@ -234,6 +235,25 @@ export default async function ListingPage({ params }: Props) {
   const listing = rawListing as unknown as Listing & { owners?: JoinedOwner | null };
   const owner: JoinedOwner | null = listing.owners ?? null;
 
+  // If the user is signed in, look up whether they've already favourited this
+  // listing so the heart paints in its correct initial state. Failures here
+  // are non-fatal — the FavoriteButton will fall back to its own client-side
+  // lookup if `initialFavorited` is undefined.
+  let initialFavorited = false;
+  if (currentUser) {
+    try {
+      const { data: favRow } = await supabase
+        .from("favorites")
+        .select("listing_id")
+        .eq("user_id", currentUser.id)
+        .eq("listing_id", listing.id)
+        .maybeSingle();
+      initialFavorited = !!favRow;
+    } catch {
+      // RLS / network error — leave default false.
+    }
+  }
+
   const cityName = CITY_NAMES[city] ?? city;
   const minPrice = getListingMinPrice(listing);
   const propertyTypeLabel = PROPERTY_TYPES[listing.type];
@@ -345,20 +365,19 @@ export default async function ListingPage({ params }: Props) {
 
               {/* Top-right actions */}
               <div className="absolute top-4 right-4 flex gap-2">
-                <button
-                  type="button"
-                  aria-label="Save to favourites"
-                  className="h-9 w-9 rounded-full bg-white/95 inline-flex items-center justify-center hover:bg-white transition-colors"
-                >
-                  <Heart size={16} className="text-[var(--color-ink-muted)]" />
-                </button>
-                <button
-                  type="button"
-                  aria-label="Share listing"
-                  className="h-9 w-9 rounded-full bg-white/95 inline-flex items-center justify-center hover:bg-white transition-colors"
-                >
-                  <Share2 size={16} className="text-[var(--color-ink-muted)]" />
-                </button>
+                <FavoriteButton
+                  listingId={listing.id}
+                  listingTitle={listing.title}
+                  initialFavorited={initialFavorited}
+                  signInNext={`/pg/${city}/${slug}`}
+                  iconSize={16}
+                  className="h-9 w-9"
+                />
+                <ShareButton
+                  title={listing.title}
+                  text={`${listing.title} in ${listing.area}, ${cityName} on HostelPups`}
+                  className="h-9 w-9"
+                />
               </div>
 
               {/* Total photo count */}
@@ -412,20 +431,19 @@ export default async function ListingPage({ params }: Props) {
             </div>
 
             <div className="absolute top-4 right-4 flex gap-2">
-              <button
-                type="button"
-                aria-label="Save to favourites"
-                className="h-9 w-9 rounded-full bg-white/95 inline-flex items-center justify-center hover:bg-white transition-colors"
-              >
-                <Heart size={16} className="text-[var(--color-ink-muted)]" />
-              </button>
-              <button
-                type="button"
-                aria-label="Share listing"
-                className="h-9 w-9 rounded-full bg-white/95 inline-flex items-center justify-center hover:bg-white transition-colors"
-              >
-                <Share2 size={16} className="text-[var(--color-ink-muted)]" />
-              </button>
+              <FavoriteButton
+                listingId={listing.id}
+                listingTitle={listing.title}
+                initialFavorited={initialFavorited}
+                signInNext={`/pg/${city}/${slug}`}
+                iconSize={16}
+                className="h-9 w-9"
+              />
+              <ShareButton
+                title={listing.title}
+                text={`${listing.title} in ${listing.area}, ${cityName} on HostelPups`}
+                className="h-9 w-9"
+              />
             </div>
 
             <p className="relative text-sm text-white/90 font-medium">

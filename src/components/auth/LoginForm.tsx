@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   AtSign,
   Lock,
@@ -13,7 +13,22 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/client";
+import { findEmailByPhone } from "@/lib/auth-actions";
 import { cn } from "@/lib/utils";
+
+/**
+ * Validate the `?next=` redirect param so we don't open up the auth flow
+ * to arbitrary open-redirects. Only same-origin absolute paths are kept;
+ * `//evil.com`, full URLs, and anything that doesn't start with `/` are
+ * stripped.
+ */
+function safeNext(raw: string | null): string | null {
+  if (!raw) return null;
+  if (!raw.startsWith("/")) return null;
+  if (raw.startsWith("//")) return null;
+  if (raw.startsWith("/\\")) return null;
+  return raw;
+}
 
 interface LoginFormProps {
   /** Cross-link target for the "Are you an owner? Owner login" footer link. */
@@ -69,6 +84,8 @@ export function LoginForm({
   flavor = "renter",
 }: LoginFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextPath = safeNext(searchParams.get("next"));
   const [identifier, setIdentifier] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [showPw, setShowPw] = React.useState(false);
@@ -105,28 +122,25 @@ export function LoginForm({
     let emailForLogin = identifier.trim().toLowerCase();
 
     if (kind === "phone") {
-      // Phone-to-email lookup. RLS policy "profiles_select_public" lets
-      // anon users read profiles, so this works pre-login.
+      // Phone-to-email lookup goes through a server action so we don't
+      // expose the profiles table to anonymous enumeration via RLS.
       const digits = identifier.replace(/\D/g, "").slice(-10);
       const phoneFormatted = `+91${digits}`;
 
-      const { data: profile, error: lookupError } = await supabase
-        .from("profiles")
-        .select("email")
-        .eq("phone", phoneFormatted)
-        .maybeSingle();
-
-      if (lookupError) {
+      let matchedEmail: string | null = null;
+      try {
+        matchedEmail = await findEmailByPhone(phoneFormatted);
+      } catch {
         setSubmitting(false);
         setError("Couldn't look up that phone number. Try again or use email.");
         return;
       }
-      if (!profile?.email) {
+      if (!matchedEmail) {
         setSubmitting(false);
         setError("No account found with that phone number.");
         return;
       }
-      emailForLogin = profile.email.toLowerCase();
+      emailForLogin = matchedEmail.toLowerCase();
     }
 
     const { data, error: authError } = await supabase.auth.signInWithPassword({
@@ -140,9 +154,16 @@ export function LoginForm({
       return;
     }
 
-    // Redirect: owner intent → owner dashboard, else home.
-    const intent = data.user?.user_metadata?.intent;
-    const dest = intent === "owner" ? "/owner/dashboard" : "/";
+    // Redirect priority:
+    //   1. validated ?next= from the URL (e.g. /pg/kochi/sunshine-pg)
+    //   2. owner intent → /owner/dashboard
+    //   3. fallback → /
+    // Default missing intent metadata to 'renter' so legacy accounts don't
+    // get bounced into the owner dashboard.
+    const intent =
+      (data.user?.user_metadata?.intent as string | undefined) ?? "renter";
+    const dest =
+      nextPath ?? (intent === "owner" ? "/owner/dashboard" : "/");
     router.replace(dest);
     router.refresh();
   }

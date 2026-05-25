@@ -75,9 +75,16 @@ export default function PrivacyPage() {
           </p>
         </section>
 
-        <p className="text-sm italic mt-12">
-          This is a placeholder privacy policy. Before launch, have it reviewed by a qualified Indian privacy lawyer
-          to ensure compliance with the DPDP Act 2023 and IT Rules.
+        <p className="mt-12 text-sm text-[var(--color-ink-subtle)]">
+          Last reviewed: {new Date().getFullYear()}. For privacy concerns or
+          DPDP Act 2023 compliance questions, email{" "}
+          <a
+            href="mailto:legal@hostelpups.in"
+            className="text-[var(--color-brand-700)] hover:underline"
+          >
+            legal@hostelpups.in
+          </a>
+          .
         </p>
       </div>
     </Container>

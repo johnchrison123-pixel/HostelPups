@@ -73,8 +73,16 @@ export default function TermsPage() {
           </p>
         </section>
 
-        <p className="text-sm italic mt-12">
-          This is a placeholder Terms of Service. Before launch, have it reviewed by a qualified Indian lawyer.
+        <p className="mt-12 text-sm text-[var(--color-ink-subtle)]">
+          Last reviewed: {new Date().getFullYear()}. For legal concerns or
+          DPDP Act 2023 compliance questions, email{" "}
+          <a
+            href="mailto:legal@hostelpups.in"
+            className="text-[var(--color-brand-700)] hover:underline"
+          >
+            legal@hostelpups.in
+          </a>
+          .
         </p>
       </div>
     </Container>

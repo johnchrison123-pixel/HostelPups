@@ -8,7 +8,7 @@ import { getCurrentOwner } from "@/lib/owner-queries";
 export const metadata: Metadata = buildMetadata({
   title: "Reviews",
   description:
-    "Renter reviews of your HostelPups listings — coming with Phase 2.",
+    "Renter reviews of your HostelPups listings — coming soon.",
   path: "/owner/reviews",
   noindex: true,
 });
@@ -47,10 +47,10 @@ export default async function OwnerReviewsPage() {
               id="reviews-coming-heading"
               className="font-bold text-base sm:text-lg"
             >
-              Reviews are coming in Phase 2
+              Reviews are coming soon
             </h2>
             <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
-              Once we ship reviews, you&apos;ll see every star rating + written
+              When we ship reviews, you&apos;ll see every star rating + written
               review left by past renters here. You&apos;ll be able to reply
               publicly to each one — a verified-owner response builds trust
               and helps your listing rank higher in search.

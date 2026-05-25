@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Phone,
   User,
@@ -19,6 +19,18 @@ import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { CITY_NAMES } from "@/lib/site";
+
+/**
+ * Validate the `?next=` redirect param so we don't open up the signup flow
+ * to arbitrary open-redirects. Only same-origin absolute paths are kept.
+ */
+function safeNext(raw: string | null): string | null {
+  if (!raw) return null;
+  if (!raw.startsWith("/")) return null;
+  if (raw.startsWith("//")) return null;
+  if (raw.startsWith("/\\")) return null;
+  return raw;
+}
 
 /**
  * Renter signup — single-step password auth.
@@ -76,6 +88,8 @@ function passwordStrength(pw: string): { label: string; tone: "weak" | "ok" | "s
 
 export function SignupForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextPath = safeNext(searchParams.get("next"));
 
   const [name, setName] = React.useState("");
   const [email, setEmail] = React.useState("");
@@ -164,7 +178,9 @@ export function SignupForm() {
     // If the founder leaves "Confirm email" ON in Supabase, no session is
     // returned and we show a check-your-email message instead of redirecting.
     if (data.session) {
-      router.replace("/");
+      // Honor ?next= so signing up from a gated CTA (e.g. "Save listing")
+      // sends the new user back to where they were headed.
+      router.replace(nextPath ?? "/");
       router.refresh();
       return;
     }

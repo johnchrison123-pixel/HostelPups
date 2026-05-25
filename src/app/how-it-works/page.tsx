@@ -6,10 +6,12 @@ import { PricingSection } from "@/components/marketing/PricingSection";
 import { FaqSection } from "@/components/marketing/FaqSection";
 import { buildMetadata } from "@/lib/seo";
 
+// NOTE: meta description is a static string. The 'Rs 99/week' reflects
+// PRICING.user.week.price in src/lib/site.ts — keep in sync when it changes.
 export const metadata: Metadata = buildMetadata({
   title: "How HostelPups Works",
   description:
-    "Search verified PGs, chat with owners, move in. Zero brokerage. ₹99/week for unlimited access. KYC-verified owners. Refund guarantee.",
+    "Search verified PGs, chat with owners, move in. Zero brokerage. Rs 99/week for unlimited access. KYC-verified owners. Refund guarantee.",
   path: "/how-it-works",
 });
 

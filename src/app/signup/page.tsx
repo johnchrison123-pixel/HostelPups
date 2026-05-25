@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Container } from "@/components/ui/Container";
 import { SignupForm } from "@/components/auth/SignupForm";
 import { AuthSidePanel } from "@/components/auth/AuthSidePanel";
 import { AuthModeToggle } from "@/components/auth/AuthModeToggle";
 import { buildMetadata } from "@/lib/seo";
 
+// NOTE: meta description is a static string. The price number ('Rs 99/week')
+// reflects PRICING.user.week.price in src/lib/site.ts — keep in sync when the
+// weekly price changes.
 export const metadata: Metadata = buildMetadata({
   title: "Sign Up — Find Verified PGs & Hostels",
   description:
@@ -23,7 +27,10 @@ export default function SignupPage() {
           <div className="mb-6">
             <AuthModeToggle active="renter" mode="signup" />
           </div>
-          <SignupForm />
+          {/* Suspense boundary for useSearchParams in SignupForm. */}
+          <Suspense fallback={null}>
+            <SignupForm />
+          </Suspense>
         </div>
 
         {/* Right column — value prop (lg+ only, same flavour as login) */}

@@ -32,7 +32,15 @@ function getDisplayName(user: User): string {
 
 function isOwnerIntent(user: User): boolean {
   const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
-  return meta.intent === "owner" || typeof meta.business_name === "string";
+  // Default missing intent to 'renter' — legacy accounts created before the
+  // password auth pivot may have no intent metadata at all. We DO honor a
+  // populated `business_name` as a fallback signal because the old owner
+  // flow always set it, so this is the only way pre-pivot owners get the
+  // correct nav without a backfill SQL.
+  const intent = typeof meta.intent === "string" ? meta.intent : "renter";
+  if (intent === "owner") return true;
+  if (intent === "renter") return false;
+  return typeof meta.business_name === "string";
 }
 
 export function Header() {

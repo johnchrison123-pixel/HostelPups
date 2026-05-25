@@ -84,7 +84,7 @@ export function OwnerSidebar({ businessName = "Your Business" }: OwnerSidebarPro
             <span className="flex-1">{item.label}</span>
             {item.pending && (
               <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 border border-amber-200">
-                Phase 2
+                Soon
               </span>
             )}
           </Link>

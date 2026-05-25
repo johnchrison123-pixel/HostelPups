@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Container } from "@/components/ui/Container";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { AuthSidePanel } from "@/components/auth/AuthSidePanel";
@@ -22,7 +23,14 @@ export default function LoginPage() {
           <div className="mb-6">
             <AuthModeToggle active="renter" mode="login" />
           </div>
-          <LoginForm flavor="renter" ownerLoginHref="/owner/login" />
+          {/*
+            LoginForm reads `?next=` via useSearchParams. Next.js requires
+            a Suspense boundary around components that bail out of static
+            generation via that hook.
+          */}
+          <Suspense fallback={null}>
+            <LoginForm flavor="renter" ownerLoginHref="/owner/login" />
+          </Suspense>
         </div>
 
         {/* Right column — value prop (55%, lg+ only) */}

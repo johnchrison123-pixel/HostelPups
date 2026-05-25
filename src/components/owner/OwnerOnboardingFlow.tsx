@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowRight,
   Camera,
@@ -19,16 +19,29 @@ import { Badge } from "@/components/ui/Badge";
 import {
   PRICING,
   CITY_NAMES,
-  KERALA_CITIES,
   FULL_SERVICE_CITIES,
 } from "@/lib/site";
 import { cn, formatPrice } from "@/lib/utils";
 import { ensureOwnerRecord, setOwnerTier } from "@/lib/owner-actions";
 import type { OwnerTier } from "@/lib/types";
 
-const ALL_CITIES = Array.from(
-  new Set([...KERALA_CITIES, ...FULL_SERVICE_CITIES]),
-);
+// Show every supported city so owners outside Kochi / Bangalore / Chennai
+// (e.g. Mumbai, Delhi, Hyderabad) can complete onboarding too — they default
+// to the self-serve tier. The full-service helper copy appears when one of
+// the three launch cities is picked.
+const ALL_CITIES = Object.keys(CITY_NAMES);
+
+/**
+ * Validate the `?next=` redirect param so we don't open up the onboarding
+ * flow to arbitrary open-redirects.
+ */
+function safeNext(raw: string | null): string | null {
+  if (!raw) return null;
+  if (!raw.startsWith("/")) return null;
+  if (raw.startsWith("//")) return null;
+  if (raw.startsWith("/\\")) return null;
+  return raw;
+}
 
 /**
  * Two-step owner onboarding flow shown after magic-link auth:
@@ -40,6 +53,8 @@ const ALL_CITIES = Array.from(
  */
 export function OwnerOnboardingFlow() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextPath = safeNext(searchParams.get("next"));
   const [step, setStep] = React.useState<"details" | "plan">("details");
   const [businessName, setBusinessName] = React.useState("");
   const [city, setCity] = React.useState("");
@@ -96,7 +111,9 @@ export function OwnerOnboardingFlow() {
     setSubmitting("plan");
     try {
       await setOwnerTier(tier);
-      router.push("/owner/dashboard");
+      // Honor ?next= if the user came in from a gated CTA, otherwise land
+      // them on the dashboard so they can start adding listings.
+      router.push(nextPath ?? "/owner/dashboard");
       router.refresh();
     } catch (err) {
       setError((err as Error).message ?? "Could not save your tier.");
@@ -335,7 +352,8 @@ export function OwnerOnboardingFlow() {
                           className="text-emerald-600 shrink-0"
                           aria-hidden="true"
                         />
-                        Optional verification badge (+Rs 799/year)
+                        Optional verification badge (+
+                        {formatPrice(PRICING.owner.verification.yearly)}/year)
                       </li>
                       <li className="flex items-center gap-2">
                         <Sparkles
@@ -380,7 +398,7 @@ export function OwnerOnboardingFlow() {
 
             <p className="text-center text-xs text-[var(--color-ink-subtle)] pt-1">
               No payment now. Free trial until your first listing is published —
-              Razorpay billing activates at that point (Phase 2).
+              billing activates at that point.
             </p>
           </form>
         )}

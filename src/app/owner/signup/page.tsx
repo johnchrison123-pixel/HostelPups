@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Container } from "@/components/ui/Container";
 import { OwnerSignupForm } from "@/components/auth/OwnerSignupForm";
 import { AuthSidePanel } from "@/components/auth/AuthSidePanel";
 import { AuthModeToggle } from "@/components/auth/AuthModeToggle";
 import { buildMetadata } from "@/lib/seo";
 
+// NOTE: meta description is a static string. The numbers below reflect
+// PRICING.owner.selfServe.yearly and PRICING.owner.fullService.firstYear in
+// src/lib/site.ts — keep in sync when those change.
 export const metadata: Metadata = buildMetadata({
   title: "Owner Sign Up — List Your PG / Hostel",
   description:
@@ -23,7 +27,10 @@ export default function OwnerSignupPage() {
           <div className="mb-6">
             <AuthModeToggle active="business" mode="signup" />
           </div>
-          <OwnerSignupForm />
+          {/* Suspense boundary for useSearchParams in OwnerSignupForm. */}
+          <Suspense fallback={null}>
+            <OwnerSignupForm />
+          </Suspense>
         </div>
 
         {/* Right column — owner-focused value prop */}

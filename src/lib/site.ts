@@ -10,6 +10,8 @@ export const SITE = {
   domain: "hostelpups.in",
   twitter: "@hostelpups",
   email: "hello@hostelpups.in",
+  // TODO: replace placeholder before launch. Currently unused in any UI —
+  // do NOT render in a `tel:` link or schema until a real number is set.
   phone: "+91-XXXXX-XXXXX",
   supportEmail: "support@hostelpups.in",
   ownerEmail: "owners@hostelpups.in",

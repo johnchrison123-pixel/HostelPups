@@ -30,8 +30,13 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${jakarta.variable} h-full antialiased`}>
       <head>
-        <link rel="icon" href="/favicon.ico" sizes="any" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        {/*
+          Favicon is served by Next.js convention from src/app/favicon.ico.
+          The PNG monogram at /icon (src/app/icon.tsx) is also picked up
+          automatically as `<link rel="icon" type="image/png" sizes="256x256">`.
+          We don't ship a standalone apple-touch-icon yet — Apple will fall
+          back to the favicon for now.
+        */}
         <link rel="manifest" href="/manifest.webmanifest" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-title" content={SITE.name} />

@@ -181,11 +181,73 @@ export function Header() {
             >
               <Search size={20} />
             </Link>
-            <div className="hidden sm:flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-1">
               {!authReady ? (
                 // Reserve space while auth state resolves to avoid layout shift
                 <div className="h-9 w-40" aria-hidden="true" />
               ) : user ? (
+                <>
+                  {/*
+                    Always-visible icon shortcuts so renters can reach Saved /
+                    Messages / Calls in one click. Owners get a different set:
+                    Listings / Inquiries / Calls. The full menu lives in the
+                    dropdown below.
+                  */}
+                  {isOwner ? (
+                    <>
+                      <Link
+                        href="/owner/listings"
+                        aria-label="My listings"
+                        title="My listings"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-[var(--color-brand-100)] text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] transition-colors"
+                      >
+                        <ListChecks size={18} />
+                      </Link>
+                      <Link
+                        href="/owner/inquiries"
+                        aria-label="Inquiries"
+                        title="Inquiries"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-[var(--color-brand-100)] text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] transition-colors"
+                      >
+                        <MessageCircle size={18} />
+                      </Link>
+                      <Link
+                        href="/owner/calls"
+                        aria-label="Calls"
+                        title="Calls"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-[var(--color-brand-100)] text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] transition-colors"
+                      >
+                        <Phone size={18} />
+                      </Link>
+                    </>
+                  ) : (
+                    <>
+                      <Link
+                        href="/saved"
+                        aria-label="Saved listings"
+                        title="Saved listings"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-[var(--color-brand-100)] text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] transition-colors"
+                      >
+                        <Heart size={18} />
+                      </Link>
+                      <Link
+                        href="/messages"
+                        aria-label="Messages"
+                        title="Messages"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-[var(--color-brand-100)] text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] transition-colors"
+                      >
+                        <MessageCircle size={18} />
+                      </Link>
+                      <Link
+                        href="/calls"
+                        aria-label="Calls"
+                        title="Calls"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-[var(--color-brand-100)] text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] transition-colors"
+                      >
+                        <Phone size={18} />
+                      </Link>
+                    </>
+                  )}
                 <div className="relative" ref={profileMenuRef}>
                   <button
                     type="button"
@@ -245,6 +307,7 @@ export function Header() {
                     </div>
                   )}
                 </div>
+                </>
               ) : (
                 <>
                   <Button href="/login" variant="ghost" size="sm">

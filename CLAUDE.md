@@ -58,6 +58,7 @@ These rules override default Claude behavior. Read before every task.
 | 2026-05-25 | "i can't see it" — diagnose Vercel deploy status directly via CLI. |
 | 2026-05-25 | (screenshot) Vercel "Production Checklist 1/5" — unrelated to dropdown bug. Checklist is optional production-readiness items (custom domain, analytics, etc). |
 | 2026-05-25 | "i want a permanent solution not a temporary one" — reduce ISR revalidate from 600s to 60s + add must-revalidate Cache-Control header so deploys propagate within 1 minute (no more cache-staleness). |
+| 2026-05-25 | "i want our normal url and permanent fix. add options or features like calls, messages and saved in our website" — make Saved/Messages/Calls always-visible top nav icons (not just in dropdown). |
 
 *New rule: append every future instruction to this table.*
 

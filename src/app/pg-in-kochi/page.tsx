@@ -5,7 +5,7 @@ import { SITE } from "@/lib/site";
 
 // ISR: regenerate every 10 min. CityLanding uses the cookie-less public client
 // so the route can be statically rendered (●) instead of dynamic (ƒ).
-export const revalidate = 600;
+export const revalidate = 60;
 
 export const metadata: Metadata = buildMetadata({
   title: "PG in Kochi — Verified Hostels & Paying Guest Accommodations",

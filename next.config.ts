@@ -23,9 +23,16 @@ const nextConfig: NextConfig = {
   // SEO + security headers
   async headers() {
     return [
+      // HTML pages — must revalidate against the server on every request so
+      // a new deploy is visible immediately. Combined with revalidate = 60
+      // on the ISR pages, the worst-case staleness is ~60 seconds.
       {
-        source: "/(.*)",
+        source: "/((?!_next/static|_next/image|favicon).*)",
         headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=0, s-maxage=60, must-revalidate",
+          },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "X-Frame-Options", value: "SAMEORIGIN" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },

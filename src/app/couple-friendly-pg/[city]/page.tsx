@@ -6,7 +6,7 @@ import { CITY_NAMES } from "@/lib/site";
 
 // ISR: regenerate every 10 min. WedgeLanding uses the cookie-less public client
 // so the route can be statically rendered (●) for all 6 cities.
-export const revalidate = 600;
+export const revalidate = 60;
 
 type Props = { params: Promise<{ city: string }> };
 

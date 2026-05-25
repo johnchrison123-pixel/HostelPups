@@ -53,6 +53,11 @@ These rules override default Claude behavior. Read before every task.
 | 2026-05-25 | "please we don't need an email to verify or confirm we just wanted to login to test our feature. so not giving public access now" — show how to create test users directly via Supabase Dashboard (bypasses signup validation). |
 | 2026-05-25 | "no I wanted it in login page i don't want to do it in supabase. adjust the code for me. later we will make changes. easy login now without restrictions" — switch signup to use auth.admin.createUser server action (bypasses email validation, auto-confirms). |
 | 2026-05-25 | "there should be options like calls messages saved" — add Messages/Calls/Saved/Profile links to Header user dropdown (currently only Dashboard + Logout). |
+| 2026-05-25 | "where can i find the calls messages saved options?" — clarify: visible only when logged in. Top-right dropdown (desktop) or bottom nav (mobile). |
+| 2026-05-25 | (screenshot) dropdown still shows only "Search PGs + Logout" — browser cached old JS bundle. Hard refresh needed. |
+| 2026-05-25 | "i can't see it" — diagnose Vercel deploy status directly via CLI. |
+| 2026-05-25 | (screenshot) Vercel "Production Checklist 1/5" — unrelated to dropdown bug. Checklist is optional production-readiness items (custom domain, analytics, etc). |
+| 2026-05-25 | "i want a permanent solution not a temporary one" — reduce ISR revalidate from 600s to 60s + add must-revalidate Cache-Control header so deploys propagate within 1 minute (no more cache-staleness). |
 
 *New rule: append every future instruction to this table.*
 

@@ -59,6 +59,9 @@ These rules override default Claude behavior. Read before every task.
 | 2026-05-25 | (screenshot) Vercel "Production Checklist 1/5" — unrelated to dropdown bug. Checklist is optional production-readiness items (custom domain, analytics, etc). |
 | 2026-05-25 | "i want a permanent solution not a temporary one" — reduce ISR revalidate from 600s to 60s + add must-revalidate Cache-Control header so deploys propagate within 1 minute (no more cache-staleness). |
 | 2026-05-25 | "i want our normal url and permanent fix. add options or features like calls, messages and saved in our website" — make Saved/Messages/Calls always-visible top nav icons (not just in dropdown). |
+| 2026-06-16 | "fix all these [27 bugs + 10 numbered tasks] use sonnet 4.6 for normal, opus 4.7 for heavy, opus 4.8 for review. give migration code at end." — 4 parallel agents fix pass + Opus reviewer + migration files 0005/0006/0007/0008. |
+| 2026-06-16 | "for admin login what are the options we have. can we login on the same page login page and and have the options of admin panel and crm there. or do we have to create another website for admin panel." — explained 3 options (same login + role redirect / separate `/admin/login` / separate subdomain), recommended Option A. |
+| 2026-06-16 | "option a. i want full admin control options and user crm and host crm option where i can edit, add, remove, ban data. supervise payments, refunds, etc" — building full `/admin` panel with user CRM, host CRM, listings/inquiries/calls/payments/reports/audit pages + migration 0009 (admin_actions audit log, is_admin() helper, ban columns, reports table, admin RLS policies). |
 
 *New rule: append every future instruction to this table.*
 

@@ -133,23 +133,70 @@ export function LoginForm({
       email: emailForLogin,
       password,
     });
-    setSubmitting(false);
 
     if (authError) {
+      setSubmitting(false);
       setError(friendlyError(authError));
       return;
     }
 
+    // Look up the user's role + ban flag so admin lands at /admin,
+    // owner at /owner/dashboard, user at /. Falls back gracefully if
+    // is_banned doesn't exist yet (Expand-Contract: migration 0009
+    // may not be applied yet when this code ships).
+    let role: string | null = null;
+    let isBanned = false;
+    if (data.user) {
+      try {
+        const r = await supabase
+          .from("profiles")
+          .select("role, is_banned")
+          .eq("id", data.user.id)
+          .maybeSingle();
+        if (r.error) throw r.error;
+        role = (r.data?.role as string | undefined) ?? null;
+        isBanned = Boolean(r.data?.is_banned);
+      } catch {
+        try {
+          const r2 = await supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", data.user.id)
+            .maybeSingle();
+          role = (r2.data?.role as string | undefined) ?? null;
+        } catch {
+          // Fall through to intent-based redirect
+        }
+      }
+    }
+
+    if (isBanned) {
+      await supabase.auth.signOut();
+      setSubmitting(false);
+      setError(
+        "This account has been suspended. Contact support@hostelpups.in for help.",
+      );
+      return;
+    }
+
+    setSubmitting(false);
+
     // Redirect priority:
-    //   1. validated ?next= from the URL (e.g. /pg/kochi/sunshine-pg)
-    //   2. owner intent → /owner/dashboard
-    //   3. fallback → /
-    // Default missing intent metadata to 'renter' so legacy accounts don't
-    // get bounced into the owner dashboard.
+    //   1. role=admin → /admin (only honor ?next= if it's an /admin path)
+    //   2. validated ?next= from the URL
+    //   3. role=owner OR signup intent=owner → /owner/dashboard
+    //   4. fallback → /
+    if (role === "admin") {
+      router.replace(nextPath?.startsWith("/admin") ? nextPath : "/admin");
+      router.refresh();
+      return;
+    }
+
     const intent =
       (data.user?.user_metadata?.intent as string | undefined) ?? "renter";
     const dest =
-      nextPath ?? (intent === "owner" ? "/owner/dashboard" : "/");
+      nextPath ??
+      (role === "owner" || intent === "owner" ? "/owner/dashboard" : "/");
     router.replace(dest);
     router.refresh();
   }

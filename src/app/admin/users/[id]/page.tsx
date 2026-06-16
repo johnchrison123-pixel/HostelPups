@@ -14,12 +14,13 @@ import {
   Flag,
   AlertTriangle,
   Heart,
+  ExternalLink,
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { buildMetadata } from "@/lib/seo";
 import { getUserById, getUserActivity } from "@/lib/admin-queries";
 import { timeAgo, formatPrice } from "@/lib/utils";
-import { CITY_NAMES } from "@/lib/site";
+import { createClient } from "@/lib/supabase/server";
 import { UserActions } from "@/components/admin/UserActions";
 
 export const metadata: Metadata = buildMetadata({
@@ -87,11 +88,26 @@ function formatDuration(secs: number | null): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+async function fetchUserCity(id: string): Promise<string> {
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("profiles")
+      .select("city")
+      .eq("id", id)
+      .maybeSingle();
+    return (data?.city as string | null) ?? "";
+  } catch {
+    return "";
+  }
+}
+
 export default async function AdminUserDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const [user, activity] = await Promise.all([
+  const [user, activity, userCity] = await Promise.all([
     getUserById(id),
     getUserActivity(id),
+    fetchUserCity(id),
   ]);
   if (!user) notFound();
 
@@ -217,11 +233,26 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
                 tone={user.reports_against > 0 ? "danger" : "default"}
               />
               {user.listing_count > 0 && (
-                <StatChip
-                  Icon={Shield}
-                  label="Listings"
-                  value={user.listing_count}
-                />
+                <Link
+                  href={`/admin/listings?owner_id=${user.id}`}
+                  className="focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-500)] rounded-full"
+                >
+                  <StatChip
+                    Icon={Shield}
+                    label="Listings"
+                    value={user.listing_count}
+                    linkIcon={<ExternalLink size={10} aria-hidden="true" />}
+                  />
+                </Link>
+              )}
+              {user.role === "owner" && (
+                <Link
+                  href={`/admin/owners/${user.id}`}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1 text-xs font-medium text-[var(--color-ink-muted)] hover:border-[var(--color-brand-500)] hover:text-[var(--color-brand-700)] transition-colors"
+                >
+                  <ExternalLink size={10} aria-hidden="true" />
+                  View owner profile
+                </Link>
               )}
             </div>
           </div>
@@ -230,7 +261,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
 
       {/* Action strip with inline panels */}
       <div className="mb-6">
-        <UserActions user={user} />
+        <UserActions user={user} userCity={userCity} />
       </div>
 
       {/* Activity sections */}
@@ -324,11 +355,24 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
                       <span className="tabular-nums">
                         {formatDuration(row.duration_seconds)}
                       </span>
-                      {row.counterparty && (
-                        <span className="ml-2 text-xs font-normal text-[var(--color-ink-muted)]">
-                          with {row.counterparty.slice(0, 8)}…
-                        </span>
-                      )}
+                      {row.counterparty && (() => {
+                        const cpName = (row as { counterparty_name?: string | null }).counterparty_name;
+                        return (
+                          <span className="ml-2 text-xs font-normal text-[var(--color-ink-muted)]">
+                            with{" "}
+                            {cpName ? (
+                              <Link
+                                href={`/admin/users/${row.counterparty}`}
+                                className="text-[var(--color-brand-700)] hover:underline font-medium"
+                              >
+                                {cpName}
+                              </Link>
+                            ) : (
+                              <>{row.counterparty.slice(0, 8)}…</>
+                            )}
+                          </span>
+                        );
+                      })()}
                     </p>
                     <p className="text-xs text-[var(--color-ink-muted)]">
                       {timeAgo(row.created_at)}
@@ -398,11 +442,6 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
         </section>
       </div>
 
-      {/* Hidden helper to silence unused import — CITY_NAMES is used implicitly
-          via the edit panel labels in the UserActions client component. */}
-      <span className="sr-only" aria-hidden="true">
-        {CITY_NAMES.kochi}
-      </span>
     </>
   );
 }
@@ -416,9 +455,10 @@ interface StatChipProps {
   label: string;
   value: number;
   tone?: "default" | "danger";
+  linkIcon?: React.ReactNode;
 }
 
-function StatChip({ Icon, label, value, tone = "default" }: StatChipProps) {
+function StatChip({ Icon, label, value, tone = "default", linkIcon }: StatChipProps) {
   const toneClass =
     tone === "danger" && value > 0
       ? "bg-red-50 border-red-200 text-red-800"
@@ -436,6 +476,7 @@ function StatChip({ Icon, label, value, tone = "default" }: StatChipProps) {
         {value}
       </span>
       {label}
+      {linkIcon && <span className="ml-0.5 text-[var(--color-brand-700)]">{linkIcon}</span>}
     </span>
   );
 }

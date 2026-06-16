@@ -60,13 +60,16 @@ export function InquiryRowActions({ inquiryId, status }: Props) {
   if (showClosePrompt) {
     return (
       <div className="flex flex-col gap-1.5 min-w-[180px]">
-        <input
-          type="text"
+        <textarea
           value={closeReason}
           onChange={(e) => setCloseReason(e.target.value)}
-          placeholder="Reason (optional)"
-          className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-500)]"
+          placeholder="Reason (required)"
+          rows={2}
+          className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 text-xs resize-none focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-500)]"
         />
+        <p className="text-[10px] text-[var(--color-ink-muted)]">
+          Min 3 characters.
+        </p>
         {closeError && (
           <p className="text-xs text-red-600">{closeError}</p>
         )}
@@ -75,7 +78,7 @@ export function InquiryRowActions({ inquiryId, status }: Props) {
             size="sm"
             variant="outline"
             onClick={handleClose}
-            disabled={isPending}
+            disabled={isPending || closeReason.trim().length < 3}
             className="h-7 px-2 text-xs"
           >
             {isPending ? "Closing…" : "Confirm close"}

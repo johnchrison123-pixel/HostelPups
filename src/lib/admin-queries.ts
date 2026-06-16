@@ -53,7 +53,8 @@ export async function getAdminStats(): Promise<AdminStats> {
   ): Promise<number> {
     try {
       return (await p).count ?? 0;
-    } catch {
+    } catch (e: unknown) {
+      console.error("[admin-queries] getAdminStats safeCount failed:", e);
       return 0;
     }
   }
@@ -110,8 +111,8 @@ export async function getAdminStats(): Promise<AdminStats> {
         .filter((p) => (p.currency ?? "INR") === "INR")
         .reduce((sum, p) => sum + Number(p.amount ?? 0), 0);
     }
-  } catch {
-    // ignore
+  } catch (e: unknown) {
+    console.error("[admin-queries] getAdminStats revenue sum failed:", e);
   }
 
   return {
@@ -154,7 +155,11 @@ export async function getAdminSidebarBadges(): Promise<AdminSidebarBadges> {
         .select("id", { count: "exact", head: true })
         .eq(column, value);
       return count ?? 0;
-    } catch {
+    } catch (e: unknown) {
+      console.error(
+        `[admin-queries] getAdminSidebarBadges safeCount(${table}) failed:`,
+        e,
+      );
       return 0;
     }
   }
@@ -214,8 +219,9 @@ export async function searchUsers({
 
     if (q && q.trim()) {
       const term = q.trim();
-      // Match name, email, or phone — sanitized for ILIKE
-      const safe = term.replace(/[%_]/g, "\\$&");
+      // Match name, email, or phone — sanitized for ILIKE and PostgREST OR
+      // syntax (which is comma- and paren-delimited).
+      const safe = term.replace(/[%_(),]/g, "\\$&");
       query = query.or(
         `name.ilike.%${safe}%,email.ilike.%${safe}%,phone.ilike.%${safe}%`,
       );
@@ -226,7 +232,8 @@ export async function searchUsers({
     const { data, count, error } = await query;
     if (error) throw error;
     return { rows: (data ?? []) as AdminUserRow[], total: count ?? 0 };
-  } catch {
+  } catch (e: unknown) {
+    console.error("[admin-queries] searchUsers failed:", e);
     return { rows: [], total: 0 };
   }
 }
@@ -241,7 +248,8 @@ export async function getUserById(id: string): Promise<AdminUserRow | null> {
       .maybeSingle();
     if (error) throw error;
     return (data ?? null) as AdminUserRow | null;
-  } catch {
+  } catch (e: unknown) {
+    console.error("[admin-queries] getUserById failed:", e);
     return null;
   }
 }
@@ -260,6 +268,7 @@ export interface UserActivity {
     duration_seconds: number | null;
     created_at: string;
     counterparty: string | null;
+    counterparty_name: string | null;
   }>;
   payments: Array<{
     id: string;
@@ -309,16 +318,45 @@ export async function getUserActivity(userId: string): Promise<UserActivity> {
         };
       }) ?? [];
 
+    // Batch-fetch counterparty names so we don't show raw UUIDs in the UI.
+    const counterpartyIds = new Set<string>();
+    (callRes.data ?? []).forEach((r: Record<string, unknown>) => {
+      counterpartyIds.add(
+        String(r.caller_id === userId ? r.callee_id : r.caller_id),
+      );
+    });
+    let nameById = new Map<string, string>();
+    if (counterpartyIds.size > 0) {
+      try {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, name")
+          .in("id", [...counterpartyIds]);
+        nameById = new Map(
+          (profs ?? []).map((p) => [String(p.id), String(p.name ?? "")]),
+        );
+      } catch (e: unknown) {
+        console.error(
+          "[admin-queries] getUserActivity counterparty lookup failed:",
+          e,
+        );
+      }
+    }
+
     const calls =
-      (callRes.data ?? []).map((r: Record<string, unknown>) => ({
-        id: String(r.id),
-        status: String(r.status),
-        duration_seconds:
-          r.duration_seconds == null ? null : Number(r.duration_seconds),
-        created_at: String(r.created_at),
-        counterparty:
-          r.caller_id === userId ? String(r.callee_id) : String(r.caller_id),
-      })) ?? [];
+      (callRes.data ?? []).map((r: Record<string, unknown>) => {
+        const counterparty =
+          r.caller_id === userId ? String(r.callee_id) : String(r.caller_id);
+        return {
+          id: String(r.id),
+          status: String(r.status),
+          duration_seconds:
+            r.duration_seconds == null ? null : Number(r.duration_seconds),
+          created_at: String(r.created_at),
+          counterparty,
+          counterparty_name: nameById.get(counterparty) ?? null,
+        };
+      }) ?? [];
 
     const payments =
       (payRes.data ?? []).map((r: Record<string, unknown>) => ({
@@ -331,7 +369,8 @@ export async function getUserActivity(userId: string): Promise<UserActivity> {
       })) ?? [];
 
     return { inquiries, calls, payments };
-  } catch {
+  } catch (e: unknown) {
+    console.error("[admin-queries] getUserActivity failed:", e);
     return empty;
   }
 }
@@ -427,7 +466,8 @@ export async function searchOwners({
       };
     });
     return { rows, total: count ?? 0 };
-  } catch {
+  } catch (e: unknown) {
+    console.error("[admin-queries] searchOwners failed:", e);
     return { rows: [], total: 0 };
   }
 }
@@ -472,15 +512,13 @@ async function getOwnerCounts(
       );
       out.set(id, { listings: lids.length, inquiries: inqCount });
     });
-  } catch {
-    // leave empty
+  } catch (e: unknown) {
+    console.error("[admin-queries] getOwnerCounts failed:", e);
   }
   return out;
 }
 
 export async function getOwnerById(id: string): Promise<AdminOwnerRow | null> {
-  const { rows } = await searchOwners({ q: undefined, limit: 1, offset: 0 });
-  // Slightly inefficient — but we need the join. Fetch one cleanly:
   const supabase = await createClient();
   try {
     const { data, error } = await supabase
@@ -499,7 +537,6 @@ export async function getOwnerById(id: string): Promise<AdminOwnerRow | null> {
     const profiles = data.profiles as
       | { name?: string; email?: string; is_banned?: boolean }
       | null;
-    void rows; // silence unused
     return {
       id: String(data.id),
       business_name: (data.business_name as string | null) ?? null,
@@ -517,7 +554,8 @@ export async function getOwnerById(id: string): Promise<AdminOwnerRow | null> {
       listing_count: counts.get(id)?.listings ?? 0,
       inquiry_count: counts.get(id)?.inquiries ?? 0,
     };
-  } catch {
+  } catch (e: unknown) {
+    console.error("[admin-queries] getOwnerById failed:", e);
     return null;
   }
 }
@@ -623,7 +661,8 @@ export async function searchAdminListings({
       },
     );
     return { rows, total: count ?? 0 };
-  } catch {
+  } catch (e: unknown) {
+    console.error("[admin-queries] searchAdminListings failed:", e);
     return { rows: [], total: 0 };
   }
 }
@@ -651,6 +690,7 @@ export interface SearchInquiriesInput {
   city?: string;
   listing_id?: string;
   user_id?: string;
+  owner_id?: string;
   limit?: number;
   offset?: number;
 }
@@ -660,6 +700,7 @@ export async function searchInquiries({
   city,
   listing_id,
   user_id,
+  owner_id,
   limit = 50,
   offset = 0,
 }: SearchInquiriesInput = {}): Promise<{
@@ -682,6 +723,19 @@ export async function searchInquiries({
     if (status) query = query.eq("status", status);
     if (listing_id) query = query.eq("listing_id", listing_id);
     if (user_id) query = query.eq("user_id", user_id);
+
+    // Push owner_id and city to the server by pre-fetching the matching
+    // listing IDs (cheaper than .filter() on the post-page rows, which is
+    // broken since it filters AFTER limit).
+    if (owner_id || city) {
+      let listingsQ = supabase.from("listings").select("id");
+      if (owner_id) listingsQ = listingsQ.eq("owner_id", owner_id);
+      if (city) listingsQ = listingsQ.eq("city", city);
+      const { data: matched } = await listingsQ;
+      const ids = (matched ?? []).map((l) => l.id);
+      if (ids.length === 0) return { rows: [], total: 0 };
+      query = query.in("listing_id", ids);
+    }
 
     query = query
       .order("created_at", { ascending: false })
@@ -716,7 +770,6 @@ export async function searchInquiries({
         };
       },
     );
-    if (city) rows = rows.filter((r) => r.city === city);
 
     // Get message counts for the visible inquiries
     if (rows.length > 0) {
@@ -731,13 +784,17 @@ export async function searchInquiries({
           tally[m.inquiry_id] = (tally[m.inquiry_id] ?? 0) + 1;
         });
         rows = rows.map((r) => ({ ...r, message_count: tally[r.id] ?? 0 }));
-      } catch {
-        // ignore
+      } catch (e: unknown) {
+        console.error(
+          "[admin-queries] searchInquiries message tally failed:",
+          e,
+        );
       }
     }
 
     return { rows, total: count ?? 0 };
-  } catch {
+  } catch (e: unknown) {
+    console.error("[admin-queries] searchInquiries failed:", e);
     return { rows: [], total: 0 };
   }
 }
@@ -811,8 +868,11 @@ export async function searchAdminCalls({
         nameById = new Map(
           (profs ?? []).map((p) => [p.id as string, (p.name as string) ?? ""]),
         );
-      } catch {
-        // ignore
+      } catch (e: unknown) {
+        console.error(
+          "[admin-queries] searchAdminCalls profile lookup failed:",
+          e,
+        );
       }
     }
 
@@ -832,7 +892,8 @@ export async function searchAdminCalls({
     }));
 
     return { rows, total: count ?? 0 };
-  } catch {
+  } catch (e: unknown) {
+    console.error("[admin-queries] searchAdminCalls failed:", e);
     return { rows: [], total: 0 };
   }
 }
@@ -927,7 +988,8 @@ export async function searchAdminPayments({
       },
     );
     return { rows, total: count ?? 0 };
-  } catch {
+  } catch (e: unknown) {
+    console.error("[admin-queries] searchAdminPayments failed:", e);
     return { rows: [], total: 0 };
   }
 }
@@ -1009,7 +1071,8 @@ export async function searchReports({
       },
     );
     return { rows, total: count ?? 0 };
-  } catch {
+  } catch (e: unknown) {
+    console.error("[admin-queries] searchReports failed:", e);
     return { rows: [], total: 0 };
   }
 }
@@ -1064,7 +1127,14 @@ export async function searchAuditLog({
       `,
         { count: "exact" },
       );
-    if (admin_id) query = query.eq("admin_id", admin_id);
+    const adminIdValid =
+      admin_id &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        admin_id,
+      )
+        ? admin_id
+        : undefined;
+    if (adminIdValid) query = query.eq("admin_id", adminIdValid);
     if (action) query = query.eq("action", action);
     if (target_table) query = query.eq("target_table", target_table);
     if (since) query = query.gte("created_at", since);
@@ -1094,7 +1164,8 @@ export async function searchAuditLog({
       },
     );
     return { rows, total: count ?? 0 };
-  } catch {
+  } catch (e: unknown) {
+    console.error("[admin-queries] searchAuditLog failed:", e);
     return { rows: [], total: 0 };
   }
 }

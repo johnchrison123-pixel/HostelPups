@@ -55,6 +55,7 @@ function paymentStatusTone(
   status: string,
 ): "verified" | "warning" | "danger" | "default" {
   if (status === "completed") return "verified";
+  if (status === "pending") return "warning";
   if (status === "refunded") return "warning";
   if (status === "failed") return "danger";
   return "default";

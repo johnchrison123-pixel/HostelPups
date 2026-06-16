@@ -34,6 +34,29 @@ async function fetchRow<T = Record<string, unknown>>(
   }
 }
 
+/**
+ * Last-admin guard: returns true if there is at least one OTHER non-banned
+ * admin besides the given user. Used to refuse mutations that would leave
+ * the system with zero active admins.
+ */
+async function hasOtherActiveAdmin(targetUserId: string): Promise<boolean> {
+  try {
+    const admin = await createAdminClient();
+    const { count } = await admin
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("role", "admin")
+      .eq("is_banned", false)
+      .neq("id", targetUserId);
+    return (count ?? 0) >= 1;
+  } catch {
+    return false;
+  }
+}
+
+const LAST_ADMIN_ERROR =
+  "Refusing — this would leave zero active admins. Promote another user to admin first.";
+
 /* ============================================================
    Users — ban / unban / edit / delete / set role / force logout
    ============================================================ */
@@ -51,6 +74,10 @@ export async function banUser(input: {
   }
   const before = await fetchRow("profiles", input.userId);
   if (!before) return { ok: false, error: "User not found." };
+  if ((before as { role?: string }).role === "admin") {
+    const safe = await hasOtherActiveAdmin(input.userId);
+    if (!safe) return { ok: false, error: LAST_ADMIN_ERROR };
+  }
 
   try {
     const admin = await createAdminClient();
@@ -143,18 +170,33 @@ export async function editProfile(input: {
   if (typeof input.city === "string") patch.city = input.city.trim() || null;
   if (Object.keys(patch).length === 0) return { ok: false, error: "Nothing to update." };
 
+  // Server-side format validation (UI also guards, but admin tools can post raw).
+  if (typeof patch.email === "string" && patch.email.length > 0) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(patch.email)) {
+      return { ok: false, error: "Invalid email format." };
+    }
+  }
+  if (typeof patch.phone === "string" && patch.phone.length > 0) {
+    if (!/^\+?[\d\s()-]{7,20}$/.test(patch.phone)) {
+      return { ok: false, error: "Invalid phone format." };
+    }
+  }
+
   try {
     const admin = await createAdminClient();
     const { error } = await admin.from("profiles").update(patch).eq("id", input.userId);
     if (error) return { ok: false, error: error.message };
 
-    // Keep auth.users in sync for email/phone
+    // Keep auth.users in sync for email/phone. Coerce null → omitted so we
+    // don't accidentally clear the auth-side value via the SDK silently.
     if (typeof patch.email === "string" || typeof patch.phone === "string") {
       try {
-        await admin.auth.admin.updateUserById(input.userId, {
-          email: (patch.email as string | undefined) ?? undefined,
-          phone: (patch.phone as string | undefined) ?? undefined,
-        });
+        const authPatch: { email?: string; phone?: string } = {};
+        if (typeof patch.email === "string") authPatch.email = patch.email;
+        if (typeof patch.phone === "string") authPatch.phone = patch.phone;
+        if (authPatch.email !== undefined || authPatch.phone !== undefined) {
+          await admin.auth.admin.updateUserById(input.userId, authPatch);
+        }
       } catch {
         // Non-fatal — the profile row is what we display in admin tools.
       }
@@ -187,6 +229,13 @@ export async function setUserRole(input: {
   }
   const before = await fetchRow("profiles", input.userId);
   if (!before) return { ok: false, error: "User not found." };
+  if (
+    (before as { role?: string }).role === "admin" &&
+    input.role !== "admin"
+  ) {
+    const safe = await hasOtherActiveAdmin(input.userId);
+    if (!safe) return { ok: false, error: LAST_ADMIN_ERROR };
+  }
 
   try {
     const admin = await createAdminClient();
@@ -224,6 +273,10 @@ export async function deleteUser(input: {
   }
   const before = await fetchRow("profiles", input.userId);
   if (!before) return { ok: false, error: "User not found." };
+  if ((before as { role?: string }).role === "admin") {
+    const safe = await hasOtherActiveAdmin(input.userId);
+    if (!safe) return { ok: false, error: LAST_ADMIN_ERROR };
+  }
 
   try {
     const admin = await createAdminClient();
@@ -251,6 +304,11 @@ export async function forceLogoutUser(input: {
   userId: string;
 }): Promise<ActionResult> {
   const me = await requireAdmin();
+  const before = await fetchRow("profiles", input.userId);
+  if (!before) return { ok: false, error: "User not found." };
+  if ((before as { is_banned?: boolean }).is_banned) {
+    return { ok: false, error: "User is already banned and signed out." };
+  }
   try {
     const admin = await createAdminClient();
     await admin.auth.admin.signOut(input.userId, "global");
@@ -259,6 +317,7 @@ export async function forceLogoutUser(input: {
       action: "force_logout",
       targetTable: "profiles",
       targetId: input.userId,
+      before,
     });
     return { ok: true };
   } catch (e) {
@@ -569,6 +628,9 @@ export async function closeInquiry(input: {
   reason?: string;
 }): Promise<ActionResult> {
   const me = await requireAdmin();
+  if (!input.reason || input.reason.trim().length < 3) {
+    return { ok: false, error: "Please provide a reason (min 3 chars)." };
+  }
   const before = await fetchRow("inquiries", input.inquiryId);
   if (!before) return { ok: false, error: "Inquiry not found." };
   try {
@@ -603,9 +665,28 @@ export async function reopenInquiry(input: {
   if (!before) return { ok: false, error: "Inquiry not found." };
   try {
     const admin = await createAdminClient();
+    // Determine the correct status: 'responded' if the listing owner has
+    // sent at least one message; otherwise 'open'.
+    const { data: lst } = await admin
+      .from("inquiries")
+      .select("listing_id, listings(owner_id)")
+      .eq("id", input.inquiryId)
+      .maybeSingle();
+    const ownerId = (lst?.listings as { owner_id?: string } | null)?.owner_id;
+    let nextStatus: "open" | "responded" = "open";
+    if (ownerId) {
+      const { data: msg } = await admin
+        .from("messages")
+        .select("id")
+        .eq("inquiry_id", input.inquiryId)
+        .eq("sender_id", ownerId)
+        .limit(1)
+        .maybeSingle();
+      if (msg) nextStatus = "responded";
+    }
     const { error } = await admin
       .from("inquiries")
-      .update({ status: "open" })
+      .update({ status: nextStatus })
       .eq("id", input.inquiryId);
     if (error) return { ok: false, error: error.message };
     const after = await fetchRow("inquiries", input.inquiryId);
@@ -616,6 +697,7 @@ export async function reopenInquiry(input: {
       targetId: input.inquiryId,
       before,
       after,
+      reason: `reopened → ${nextStatus}`,
     });
     revalidatePath("/admin/inquiries");
     return { ok: true };
@@ -745,6 +827,9 @@ export async function markPaymentFailed(input: {
   const me = await requireAdmin();
   const before = await fetchRow("payments", input.paymentId);
   if (!before) return { ok: false, error: "Payment not found." };
+  if ((before as { status?: string }).status !== "pending") {
+    return { ok: false, error: "Only pending payments can be marked failed." };
+  }
   try {
     const admin = await createAdminClient();
     const { error } = await admin
@@ -783,6 +868,10 @@ export async function resolveReport(input: {
   }
   const before = await fetchRow("reports", input.reportId);
   if (!before) return { ok: false, error: "Report not found." };
+  const beforeStatus = (before as { status?: string }).status;
+  if (beforeStatus === "resolved" || beforeStatus === "dismissed") {
+    return { ok: false, error: `Report is already ${beforeStatus}.` };
+  }
   try {
     const admin = await createAdminClient();
     const { error } = await admin
@@ -819,6 +908,10 @@ export async function dismissReport(input: {
   const me = await requireAdmin();
   const before = await fetchRow("reports", input.reportId);
   if (!before) return { ok: false, error: "Report not found." };
+  const beforeStatus = (before as { status?: string }).status;
+  if (beforeStatus === "resolved" || beforeStatus === "dismissed") {
+    return { ok: false, error: `Report is already ${beforeStatus}.` };
+  }
   try {
     const admin = await createAdminClient();
     const { error } = await admin
@@ -857,26 +950,56 @@ export async function fetchReportTarget(
   targetType: string,
   targetId: string,
 ): Promise<{ ok: true; data: Record<string, unknown> } | { ok: false; error: string }> {
-  await requireAdmin();
-  const tableMap: Record<string, string> = {
-    listing: "listings",
-    user: "profiles",
-    message: "messages",
-    review: "reviews",
-    owner: "owners",
-    inquiry: "inquiries",
+  const me = await requireAdmin();
+  // Per-target whitelist — explicitly omits sensitive fields like
+  // owners.kyc_documents so the resolver UI can never leak PII.
+  const tableMap: Record<string, { table: string; columns: string }> = {
+    user: {
+      table: "profiles",
+      columns: "id, name, email, phone, role, is_banned, created_at",
+    },
+    owner: {
+      table: "owners",
+      columns:
+        "id, business_name, tier, kyc_status, contact_phone, registered_at",
+    },
+    listing: {
+      table: "listings",
+      columns:
+        "id, title, slug, city, area, status, type, owner_id, is_verified, created_at",
+    },
+    message: {
+      table: "messages",
+      columns:
+        "id, inquiry_id, sender_id, content, was_redacted, created_at",
+    },
+    review: {
+      table: "reviews",
+      columns: "id, listing_id, user_id, rating, content, created_at",
+    },
+    inquiry: {
+      table: "inquiries",
+      columns: "id, user_id, listing_id, status, created_at",
+    },
   };
-  const table = tableMap[targetType];
-  if (!table) return { ok: false, error: "Unknown target type." };
+  const map = tableMap[targetType];
+  if (!map) return { ok: false, error: "Unknown target type." };
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
-      .from(table)
-      .select("*")
+      .from(map.table)
+      .select(map.columns)
       .eq("id", targetId)
       .maybeSingle();
     if (error || !data) return { ok: false, error: "Target not found." };
-    return { ok: true, data };
+    // Informational audit log entry — admin viewed a report target row.
+    await logAdminAction({
+      adminId: me.id,
+      action: "view_target",
+      targetTable: map.table,
+      targetId,
+    });
+    return { ok: true, data: data as unknown as Record<string, unknown> };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }

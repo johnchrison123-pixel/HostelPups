@@ -1,13 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 export function AdminSignOutButton() {
   const [pending, setPending] = React.useState(false);
-  const router = useRouter();
 
   async function handleSignOut() {
     if (pending) return;
@@ -18,8 +16,7 @@ export function AdminSignOutButton() {
     } catch {
       // ignore — proceed to redirect regardless
     }
-    router.push("/login");
-    router.refresh();
+    window.location.href = "/login";
   }
 
   return (

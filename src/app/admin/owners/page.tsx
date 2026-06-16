@@ -181,6 +181,9 @@ export default async function AdminOwnersPage({ searchParams }: Props) {
         {kyc_status && (
           <input type="hidden" name="kyc_status" value={kyc_status} />
         )}
+        {tier && (
+          <input type="hidden" name="tier" value={tier} />
+        )}
         <div className="flex-1 min-w-0">
           <label
             htmlFor="owners-search"

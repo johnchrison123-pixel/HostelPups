@@ -37,7 +37,9 @@ function parseRole(raw: string | undefined): "user" | "owner" | "admin" | undefi
 function parsePage(raw: string | undefined): number {
   const n = Number(raw);
   if (!Number.isFinite(n) || n < 1) return 1;
-  return Math.floor(n);
+  const floored = Math.floor(n);
+  if (!Number.isInteger(floored) || floored < 1 || floored > 100000) return 1;
+  return floored;
 }
 
 function buildQuery(
@@ -339,16 +341,17 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
                           )}
                         </p>
                       </div>
-                      {u.is_banned ? (
-                        <Badge
-                          tone="danger"
-                          icon={<Ban size={11} aria-hidden="true" />}
-                        >
-                          Banned
-                        </Badge>
-                      ) : (
+                      <div className="flex flex-col items-end gap-1">
                         <Badge tone={roleTone(u.role)}>{u.role}</Badge>
-                      )}
+                        {u.is_banned && (
+                          <Badge
+                            tone="danger"
+                            icon={<Ban size={11} aria-hidden="true" />}
+                          >
+                            Banned
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                     <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--color-ink-muted)]">
                       <span>{u.inquiry_count} inquiries</span>

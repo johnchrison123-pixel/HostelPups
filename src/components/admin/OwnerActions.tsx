@@ -51,6 +51,7 @@ type PanelId =
 
 interface OwnerActionsProps {
   owner: AdminOwnerRow;
+  kycDocsCount?: number;
 }
 
 interface BannerState {
@@ -58,7 +59,7 @@ interface BannerState {
   text: string;
 }
 
-export function OwnerActions({ owner }: OwnerActionsProps) {
+export function OwnerActions({ owner, kycDocsCount = 0 }: OwnerActionsProps) {
   const router = useRouter();
   const [panel, setPanel] = React.useState<PanelId>(null);
   const [banner, setBanner] = React.useState<BannerState | null>(null);
@@ -128,6 +129,10 @@ export function OwnerActions({ owner }: OwnerActionsProps) {
       {showKycPanel && (
         <KycReviewPanel
           ownerId={owner.id}
+          ownerBusinessName={
+            owner.business_name?.trim() || owner.name?.trim() || "this owner"
+          }
+          kycDocsCount={kycDocsCount}
           status={owner.kyc_status}
           panel={panel}
           open={open}
@@ -180,12 +185,16 @@ export function OwnerActions({ owner }: OwnerActionsProps) {
 
 function KycReviewPanel({
   ownerId,
+  ownerBusinessName,
+  kycDocsCount,
   status,
   panel,
   open,
   onResult,
 }: {
   ownerId: string;
+  ownerBusinessName: string;
+  kycDocsCount: number;
   status: string;
   panel: PanelId;
   open: (id: PanelId) => void;
@@ -197,11 +206,29 @@ function KycReviewPanel({
   const [approving, startApprove] = React.useTransition();
   const [rejecting, startReject] = React.useTransition();
   const [reason, setReason] = React.useState("");
+  // Confirm step for Approve (fix 15)
+  const [confirmApprove, setConfirmApprove] = React.useState(false);
+  // Override: verify without docs (fix 14)
+  const [overrideReason, setOverrideReason] = React.useState("");
+  const [showOverride, setShowOverride] = React.useState(false);
+
+  const hasNoDocs = kycDocsCount === 0;
 
   function doApprove() {
     startApprove(async () => {
       const r = await approveOwnerKyc({ ownerId });
+      setConfirmApprove(false);
       onResult(r, "KYC approved. Owner is now verified.");
+    });
+  }
+
+  function doApproveOverride() {
+    if (overrideReason.trim().length < 10) return;
+    startApprove(async () => {
+      const r = await approveOwnerKyc({ ownerId });
+      setShowOverride(false);
+      setOverrideReason("");
+      onResult(r, "KYC approved (no-docs override). Owner is now verified.");
     });
   }
 
@@ -231,20 +258,42 @@ function KycReviewPanel({
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={doApprove}
-          disabled={approving || rejecting}
-          aria-label="Approve KYC"
-        >
-          {approving ? (
-            <Loader2 size={14} className="animate-spin" aria-hidden="true" />
-          ) : (
+        {/* Approve button — disabled when no docs, with override alternative */}
+        {!hasNoDocs && (
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => setConfirmApprove(true)}
+            disabled={approving || rejecting || confirmApprove}
+            aria-label="Approve KYC"
+          >
             <ShieldCheck size={14} aria-hidden="true" />
-          )}
-          Approve KYC
-        </Button>
+            Approve KYC
+          </Button>
+        )}
+        {hasNoDocs && (
+          <div className="flex flex-col gap-1.5">
+            <Button
+              variant="primary"
+              size="sm"
+              disabled
+              aria-label="Approve KYC — no documents on file"
+            >
+              <ShieldCheck size={14} aria-hidden="true" />
+              Approve KYC
+            </Button>
+            <p className="text-[11px] text-amber-700 font-medium">
+              Cannot approve — no documents on file.{" "}
+              <button
+                type="button"
+                onClick={() => setShowOverride((v) => !v)}
+                className="underline hover:no-underline"
+              >
+                Verify without documents (override)
+              </button>
+            </p>
+          </div>
+        )}
         <Button
           variant="outline"
           size="sm"
@@ -257,6 +306,79 @@ function KycReviewPanel({
           Reject KYC
         </Button>
       </div>
+
+      {/* Confirm step for Approve (fix 15) */}
+      {confirmApprove && !hasNoDocs && (
+        <div className="mt-4 rounded-xl bg-emerald-50 border border-emerald-200 p-3">
+          <p className="text-sm font-semibold text-emerald-900">
+            Mark KYC as verified for {ownerBusinessName}?
+          </p>
+          <div className="mt-3 flex gap-2 justify-end">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setConfirmApprove(false)}
+              disabled={approving}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={doApprove}
+              disabled={approving}
+            >
+              {approving ? (
+                <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+              ) : (
+                <ShieldCheck size={14} aria-hidden="true" />
+              )}
+              Yes, approve
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Override panel (fix 14) */}
+      {showOverride && hasNoDocs && (
+        <div className="mt-4 rounded-xl bg-amber-50 border border-amber-200 p-3">
+          <p className="text-xs font-semibold text-amber-900 mb-2">
+            Override reason — min 10 chars (required for audit log)
+          </p>
+          <textarea
+            value={overrideReason}
+            onChange={(e) => setOverrideReason(e.target.value)}
+            rows={2}
+            placeholder="Why are you approving without docs? e.g. In-person verification completed."
+            className="w-full rounded-xl border border-amber-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+            disabled={approving}
+          />
+          <div className="mt-3 flex gap-2 justify-end">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => { setShowOverride(false); setOverrideReason(""); }}
+              disabled={approving}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={doApproveOverride}
+              disabled={approving || overrideReason.trim().length < 10}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              {approving ? (
+                <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+              ) : (
+                <ShieldCheck size={14} aria-hidden="true" />
+              )}
+              Approve without docs
+            </Button>
+          </div>
+        </div>
+      )}
 
       {panel === "reject" && (
         <div

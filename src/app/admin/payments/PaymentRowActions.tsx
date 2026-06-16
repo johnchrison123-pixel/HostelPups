@@ -29,8 +29,8 @@ export function PaymentRowActions({ paymentId, status }: Props) {
   }
 
   function handleSubmit() {
-    if (!reason.trim()) {
-      setError("Reason is required.");
+    if (reason.trim().length < 3) {
+      setError("Reason must be at least 3 characters.");
       return;
     }
     setError(null);
@@ -60,14 +60,18 @@ export function PaymentRowActions({ paymentId, status }: Props) {
   }
 
   if (activeAction) {
-    const label = activeAction === "refund" ? "Refund" : "Mark failed";
+    const isRefund = activeAction === "refund";
+    const placeholderLabel = isRefund ? "refund" : "mark failed";
+    const confirmLabel = isRefund
+      ? "Confirm — Razorpay NOT called"
+      : "Confirm mark failed";
     return (
-      <div className="flex flex-col gap-1.5 min-w-[200px]">
+      <div className="flex flex-col gap-1.5 min-w-[220px]">
         <input
           type="text"
           value={reason}
           onChange={(e) => setReason(e.target.value)}
-          placeholder={`Reason for ${label.toLowerCase()}…`}
+          placeholder={`Reason for ${placeholderLabel}…`}
           className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-500)]"
           autoFocus
         />
@@ -80,7 +84,7 @@ export function PaymentRowActions({ paymentId, status }: Props) {
             disabled={isPending}
             className="h-7 px-2 text-xs"
           >
-            {isPending ? "Saving…" : `Confirm ${label.toLowerCase()}`}
+            {isPending ? "Saving…" : confirmLabel}
           </Button>
           <button
             onClick={handleCancel}
@@ -89,6 +93,11 @@ export function PaymentRowActions({ paymentId, status }: Props) {
             Cancel
           </button>
         </div>
+        {isRefund && (
+          <p className="text-[10px] text-amber-700">
+            DB-only — does not trigger Razorpay refund yet.
+          </p>
+        )}
       </div>
     );
   }
@@ -100,7 +109,7 @@ export function PaymentRowActions({ paymentId, status }: Props) {
           onClick={() => setActiveAction("refund")}
           className="text-xs font-semibold text-amber-700 hover:underline"
         >
-          Refund
+          Mark refunded (DB only)
         </button>
       )}
       {canMarkFailed && (

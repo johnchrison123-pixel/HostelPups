@@ -27,6 +27,7 @@ type Panel = null | "edit" | "role" | "ban" | "delete";
 
 interface UserActionsProps {
   user: AdminUserRow;
+  userCity?: string;
 }
 
 /**
@@ -42,7 +43,7 @@ interface UserActionsProps {
  * Server actions already do `requireAdmin()` and write to the audit log,
  * so this component is purely a UX shell.
  */
-export function UserActions({ user }: UserActionsProps) {
+export function UserActions({ user, userCity = "" }: UserActionsProps) {
   const router = useRouter();
   const [panel, setPanel] = React.useState<Panel>(null);
   const [pending, startTransition] = React.useTransition();
@@ -121,12 +122,14 @@ export function UserActions({ user }: UserActionsProps) {
             disabled={pending}
           />
         )}
-        <ActionTab
-          icon={<LogOut size={14} aria-hidden="true" />}
-          label="Force logout"
-          onClick={handleForceLogout}
-          disabled={pending}
-        />
+        {!user.is_banned && (
+          <ActionTab
+            icon={<LogOut size={14} aria-hidden="true" />}
+            label="Sign out everywhere"
+            onClick={handleForceLogout}
+            disabled={pending}
+          />
+        )}
         <ActionTab
           icon={<Trash2 size={14} aria-hidden="true" />}
           label="Delete user"
@@ -155,6 +158,7 @@ export function UserActions({ user }: UserActionsProps) {
       {panel === "edit" && (
         <EditProfilePanel
           user={user}
+          userCity={userCity}
           pending={pending}
           error={error}
           onCancel={closePanel}
@@ -303,6 +307,7 @@ function ActionTab({
 
 interface EditProfilePanelProps {
   user: AdminUserRow;
+  userCity?: string;
   pending: boolean;
   error: string | null;
   onCancel: () => void;
@@ -316,6 +321,7 @@ interface EditProfilePanelProps {
 
 function EditProfilePanel({
   user,
+  userCity = "",
   pending,
   error,
   onCancel,
@@ -378,6 +384,7 @@ function EditProfilePanel({
             ref={cityRef}
             id="edit-city"
             type="text"
+            defaultValue={userCity}
             placeholder="kochi"
             className={inputClass}
             disabled={pending}
@@ -441,10 +448,19 @@ function ChangeRolePanel({
   }
 
   const noChange = role === user.role;
+  const isUnknownRole = !["user", "owner", "admin"].includes(user.role);
 
   return (
     <PanelShell title="Change role" onClose={onCancel}>
       <form onSubmit={handleSubmit} className="space-y-3">
+        {isUnknownRole && (
+          <div className="inline-flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">
+            <AlertTriangle size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
+            <span>
+              Current role &lsquo;<strong>{user.role}</strong>&rsquo; is unrecognized. Saving will change it to the selected value.
+            </span>
+          </div>
+        )}
         <FieldRow label="New role" htmlFor="role-select">
           <select
             id="role-select"
@@ -506,14 +522,16 @@ interface BanPanelProps {
 
 function BanPanel({ pending, error, onCancel, onSubmit }: BanPanelProps) {
   const reasonRef = React.useRef<HTMLTextAreaElement>(null);
+  const [localError, setLocalError] = React.useState<string | null>(null);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const reason = reasonRef.current?.value.trim() ?? "";
     if (reason.length < 3) {
-      // Browser HTML validation handles this; just be safe.
+      setLocalError("Ban reason must be at least 3 characters.");
       return;
     }
+    setLocalError(null);
     onSubmit(reason);
   }
 
@@ -536,7 +554,7 @@ function BanPanel({ pending, error, onCancel, onSubmit }: BanPanelProps) {
             disabled={pending}
           />
         </FieldRow>
-        {error && <InlineError message={error} />}
+        {(localError || error) && <InlineError message={localError ?? error!} />}
         <div className="flex items-center justify-end gap-2 pt-1">
           <button
             type="button"

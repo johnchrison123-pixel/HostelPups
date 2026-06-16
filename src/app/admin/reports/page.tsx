@@ -4,8 +4,10 @@ import { Flag } from "lucide-react";
 import { buildMetadata } from "@/lib/seo";
 import { searchReports } from "@/lib/admin-queries";
 import type { AdminReportRow } from "@/lib/admin-queries";
+import { fetchReportTarget } from "@/lib/admin-actions";
+import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/Badge";
-import { timeAgo } from "@/lib/utils";
+import { timeAgo, truncate } from "@/lib/utils";
 import { ReportActions } from "./ReportActions";
 
 export const metadata: Metadata = buildMetadata({
@@ -64,7 +66,7 @@ function targetLink(report: AdminReportRow): string | null {
   if (target_type === "user") return `/admin/users/${target_id}`;
   if (target_type === "listing") return `/admin/listings?q=${target_id}`;
   if (target_type === "owner") return `/admin/owners/${target_id}`;
-  if (target_type === "inquiry") return `/admin/inquiries`;
+  if (target_type === "inquiry") return `/admin/inquiries/${target_id}`;
   return null;
 }
 
@@ -86,7 +88,8 @@ interface PageProps {
 
 export default async function AdminReportsPage({ searchParams }: PageProps) {
   const sp = await searchParams;
-  const statusRaw = sp.status ?? "open";
+  const wasExplicit = sp.status !== undefined;
+  const statusRaw = sp.status ?? "";
   const targetTypeRaw = sp.target_type ?? "";
   const page = Math.max(1, parseInt(sp.page ?? "1", 10));
   const offset = (page - 1) * PAGE_SIZE;
@@ -125,8 +128,38 @@ export default async function AdminReportsPage({ searchParams }: PageProps) {
     });
   }
 
-  const actionable =
-    status === "open" || status === "reviewing" || !status;
+  // For message / review / inquiry targets, fetch a small preview row
+  // server-side so we can show it inline (Item K).
+  const PREVIEW_TYPES = new Set(["message", "review", "inquiry"]);
+  const previews = await Promise.all(
+    rows.map(async (r) => {
+      if (!PREVIEW_TYPES.has(r.target_type)) return null;
+      const res = await fetchReportTarget(r.target_type, r.target_id);
+      if (!res.ok) return null;
+      return res.data;
+    }),
+  );
+
+  // For inquiry previews we also want the last few messages.
+  const inquiryMsgSupabase = await createClient();
+  const inquiryRecentMessages = await Promise.all(
+    rows.map(async (r, i) => {
+      if (r.target_type !== "inquiry" || !previews[i]) return null;
+      try {
+        const { data } = await inquiryMsgSupabase
+          .from("messages")
+          .select("id, sender_id, content, created_at")
+          .eq("inquiry_id", r.target_id)
+          .order("created_at", { ascending: false })
+          .limit(3);
+        if (!data) return null;
+        // Reverse to chronological order
+        return [...data].reverse();
+      } catch {
+        return null;
+      }
+    }),
+  );
 
   return (
     <>
@@ -155,7 +188,9 @@ export default async function AdminReportsPage({ searchParams }: PageProps) {
         {/* Status pills */}
         <div className="flex flex-wrap gap-2">
           {STATUS_PILLS.map((pill) => {
-            const active = statusRaw === pill.value;
+            const active =
+              statusRaw === pill.value ||
+              (statusRaw === "" && pill.value === "");
             return (
               <Link
                 key={pill.value}
@@ -192,7 +227,9 @@ export default async function AdminReportsPage({ searchParams }: PageProps) {
           </select>
         </label>
         <form id="reports-filter-form" action="/admin/reports" method="GET" className="flex items-center">
-          <input type="hidden" name="status" value={statusRaw} />
+          {wasExplicit && statusRaw && (
+            <input type="hidden" name="status" value={statusRaw} />
+          )}
           <button
             type="submit"
             className="rounded-full border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-3 py-1.5 text-sm font-semibold hover:border-[var(--color-brand-400)] transition-colors"
@@ -219,8 +256,8 @@ export default async function AdminReportsPage({ searchParams }: PageProps) {
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          {rows.map((report) => {
-            const isActionable =
+          {rows.map((report, i) => {
+            const isOpenLike =
               report.status === "open" || report.status === "reviewing";
             const link = targetLink(report);
             const detailsTruncated = report.details
@@ -228,6 +265,8 @@ export default async function AdminReportsPage({ searchParams }: PageProps) {
                 ? report.details.slice(0, 199) + "…"
                 : report.details
               : null;
+            const preview = previews[i] as Record<string, unknown> | null;
+            const recentMessages = inquiryRecentMessages[i];
 
             return (
               <article
@@ -260,9 +299,14 @@ export default async function AdminReportsPage({ searchParams }: PageProps) {
                     <span className="font-medium text-[var(--color-ink)]">
                       Reporter:
                     </span>{" "}
-                    {report.reporter_name ?? (
-                      <span className="italic">Unknown</span>
-                    )}
+                    <Link
+                      href={`/admin/users/${report.reporter_id}`}
+                      className="font-semibold text-[var(--color-brand-700)] hover:underline"
+                    >
+                      {report.reporter_name ?? (
+                        <span className="italic">Unknown</span>
+                      )}
+                    </Link>
                   </p>
                   {detailsTruncated && (
                     <p className="text-sm text-[var(--color-ink-muted)] leading-relaxed">
@@ -273,6 +317,92 @@ export default async function AdminReportsPage({ searchParams }: PageProps) {
                     Target ID: {report.target_id}
                   </p>
                 </div>
+
+                {/* Inline target preview (message / review / inquiry) — Item K */}
+                {preview && report.target_type === "message" && (
+                  <div className="px-4 pb-3">
+                    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-ink-subtle)] mb-1">
+                        Message preview
+                      </p>
+                      <p className="text-sm whitespace-pre-wrap text-[var(--color-ink)]">
+                        {truncate(String(preview.content ?? ""), 300)}
+                      </p>
+                      <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
+                        Sender:{" "}
+                        <span className="font-mono">
+                          {String(preview.sender_id ?? "").slice(0, 8)}
+                        </span>
+                        {Boolean(preview.created_at) && (
+                          <>
+                            {" · "}
+                            {timeAgo(String(preview.created_at))}
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {preview && report.target_type === "review" && (
+                  <div className="px-4 pb-3">
+                    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-ink-subtle)] mb-1">
+                        Review preview
+                      </p>
+                      <p className="text-sm font-semibold text-[var(--color-ink)]">
+                        Rating: {String(preview.rating ?? "—")} / 5
+                      </p>
+                      <p className="mt-1 text-sm whitespace-pre-wrap text-[var(--color-ink-muted)]">
+                        {truncate(
+                          String(preview.content ?? preview.body ?? ""),
+                          300,
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {preview && report.target_type === "inquiry" && (
+                  <div className="px-4 pb-3">
+                    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2">
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-ink-subtle)]">
+                          Inquiry preview
+                        </p>
+                        <Link
+                          href={`/admin/inquiries/${report.target_id}`}
+                          className="text-xs font-semibold text-[var(--color-brand-700)] hover:underline"
+                        >
+                          Open chat →
+                        </Link>
+                      </div>
+                      {recentMessages && recentMessages.length > 0 ? (
+                        <ol className="flex flex-col gap-1.5">
+                          {recentMessages.map((m) => {
+                            const mr = m as Record<string, unknown>;
+                            return (
+                              <li
+                                key={String(mr.id)}
+                                className="text-xs text-[var(--color-ink-muted)]"
+                              >
+                                <span className="font-mono text-[var(--color-ink-subtle)]">
+                                  {String(mr.sender_id ?? "").slice(0, 8)}
+                                </span>
+                                {": "}
+                                <span className="whitespace-pre-wrap">
+                                  {truncate(String(mr.content ?? ""), 140)}
+                                </span>
+                              </li>
+                            );
+                          })}
+                        </ol>
+                      ) : (
+                        <p className="text-xs text-[var(--color-ink-muted)] italic">
+                          No messages yet.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Resolution footer (only when resolved/dismissed) */}
                 {(report.status === "resolved" ||
@@ -295,25 +425,25 @@ export default async function AdminReportsPage({ searchParams }: PageProps) {
                     </div>
                   )}
 
-                {/* Action row */}
-                {actionable && isActionable && (
-                  <div className="px-4 pb-4 pt-2 border-t border-[var(--color-border)] flex flex-wrap items-center gap-3">
-                    {link && (
-                      <a
-                        href={link}
-                        className="text-xs font-semibold text-[var(--color-brand-700)] hover:underline inline-flex items-center gap-1"
-                      >
-                        View target →
-                      </a>
-                    )}
-                    {!link && (
-                      <span className="text-xs text-[var(--color-ink-subtle)]">
-                        Target: {report.target_type} #{report.target_id.slice(0, 8)}
-                      </span>
-                    )}
-                    <ReportActions report={report} />
-                  </div>
-                )}
+                {/* Action row — always render View target link; hide
+                    Resolve/Dismiss buttons when terminal status. */}
+                <div className="px-4 pb-4 pt-2 border-t border-[var(--color-border)] flex flex-wrap items-center gap-3">
+                  {link && (
+                    <Link
+                      href={link}
+                      className="text-xs font-semibold text-[var(--color-brand-700)] hover:underline inline-flex items-center gap-1"
+                    >
+                      View target →
+                    </Link>
+                  )}
+                  {!link && (
+                    <span className="text-xs text-[var(--color-ink-subtle)]">
+                      Target: {report.target_type} #
+                      {report.target_id.slice(0, 8)}
+                    </span>
+                  )}
+                  {isOpenLike && <ReportActions report={report} />}
+                </div>
               </article>
             );
           })}

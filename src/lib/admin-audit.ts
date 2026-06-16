@@ -26,7 +26,8 @@ export type AdminActionName =
   | "refund_payment"
   | "mark_payment_failed"
   | "resolve_report"
-  | "dismiss_report";
+  | "dismiss_report"
+  | "view_target";
 
 export interface LogAdminActionInput {
   adminId: string;
@@ -36,6 +37,21 @@ export interface LogAdminActionInput {
   before?: unknown;
   after?: unknown;
   reason?: string;
+}
+
+/**
+ * Strip large / sensitive fields out of a row payload before writing it to
+ * admin_actions.before / .after. `kyc_documents` in particular can be huge
+ * (signed-URL bundles or base64 blobs) and would bloat the audit table.
+ */
+function redact(v: unknown): unknown {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return v;
+  const out: Record<string, unknown> = {};
+  for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+    if (k === "kyc_documents") continue;
+    out[k] = val;
+  }
+  return out;
 }
 
 /**
@@ -61,8 +77,8 @@ export async function logAdminAction(input: LogAdminActionInput): Promise<void> 
       action: input.action,
       target_table: input.targetTable ?? null,
       target_id: input.targetId ?? null,
-      before: input.before ?? null,
-      after: input.after ?? null,
+      before: redact(input.before) ?? null,
+      after: redact(input.after) ?? null,
       reason: input.reason ?? null,
       ip_address: ip,
     });

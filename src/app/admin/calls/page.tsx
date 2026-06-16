@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PhoneCall, Lock, ExternalLink } from "lucide-react";
+import { PhoneCall, Lock } from "lucide-react";
 import { buildMetadata } from "@/lib/seo";
 import { searchAdminCalls } from "@/lib/admin-queries";
 import { Badge } from "@/components/ui/Badge";
 import { timeAgo } from "@/lib/utils";
+import { CallsFilters } from "./CallsFilters";
 
 export const metadata: Metadata = buildMetadata({
   title: "Calls — Admin",
@@ -17,15 +18,6 @@ export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 50;
 
-type SinceOption = "24h" | "7d" | "30d";
-
-const SINCE_OPTIONS: Array<{ value: SinceOption | ""; label: string }> = [
-  { value: "24h", label: "24h" },
-  { value: "7d", label: "7d" },
-  { value: "30d", label: "30d" },
-  { value: "", label: "All" },
-];
-
 const CALL_STATUSES = [
   "ringing",
   "accepted",
@@ -37,6 +29,7 @@ const CALL_STATUSES = [
 ];
 
 function sinceToISO(since: string): string | undefined {
+  if (!since) return undefined;
   const now = Date.now();
   if (since === "24h") return new Date(now - 24 * 60 * 60 * 1000).toISOString();
   if (since === "7d") return new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -82,7 +75,7 @@ interface PageProps {
 
 export default async function AdminCallsPage({ searchParams }: PageProps) {
   const sp = await searchParams;
-  const sinceRaw = sp.since ?? "24h";
+  const sinceRaw = sp.since ?? "";
   const statusRaw = sp.status ?? "";
   const page = Math.max(1, parseInt(sp.page ?? "1", 10));
   const offset = (page - 1) * PAGE_SIZE;
@@ -98,18 +91,6 @@ export default async function AdminCallsPage({ searchParams }: PageProps) {
   });
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-
-  function filterUrl(params: {
-    since?: string;
-    status?: string;
-    page?: string;
-  }) {
-    return buildUrl("/admin/calls", {
-      since: (params.since ?? sinceRaw) || undefined,
-      status: (params.status ?? statusRaw) || undefined,
-      page: params.page,
-    });
-  }
 
   function paginationUrl(p: number) {
     return buildUrl("/admin/calls", {
@@ -153,55 +134,8 @@ export default async function AdminCallsPage({ searchParams }: PageProps) {
         </p>
       </div>
 
-      {/* Filters row */}
-      <div className="flex flex-wrap items-center gap-4 mb-4">
-        {/* Since pills */}
-        <div className="flex gap-2">
-          {SINCE_OPTIONS.map((opt) => {
-            const active = sinceRaw === opt.value;
-            return (
-              <Link
-                key={opt.value}
-                href={filterUrl({ since: opt.value, page: undefined })}
-                className={[
-                  "inline-flex items-center rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors",
-                  active
-                    ? "bg-[var(--color-brand-500)] border-[var(--color-brand-500)] text-white"
-                    : "bg-[var(--color-bg-elevated)] border-[var(--color-border)] text-[var(--color-ink)] hover:border-[var(--color-brand-400)]",
-                ].join(" ")}
-              >
-                {opt.label}
-              </Link>
-            );
-          })}
-        </div>
-
-        {/* Status select */}
-        <label className="flex items-center gap-2 text-sm">
-          <span className="font-medium text-[var(--color-ink-muted)]">Status</span>
-          <select
-            defaultValue={statusRaw}
-            className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-500)]"
-            onChange={(e) => {
-              // Client navigation via form or direct link since we're server
-              // component — wrap in a client form is the idiomatic way, but
-              // for a simple admin filter a plain form submit works fine.
-            }}
-            form="calls-filter-form"
-            name="status"
-          >
-            <option value="">All statuses</option>
-            {CALL_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s.charAt(0).toUpperCase() + s.slice(1)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <form id="calls-filter-form" action="/admin/calls" method="GET" className="hidden">
-          <input type="hidden" name="since" value={sinceRaw} />
-        </form>
-      </div>
+      {/* Filters */}
+      <CallsFilters since={sinceRaw} status={statusRaw} />
 
       {/* Table */}
       {rows.length === 0 ? (
@@ -284,13 +218,10 @@ export default async function AdminCallsPage({ searchParams }: PageProps) {
                     <td className="px-4 py-3">
                       {row.inquiry_id ? (
                         <Link
-                          href={`/owner/inquiries/${row.inquiry_id}`}
+                          href={`/admin/inquiries/${row.inquiry_id}`}
                           className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--color-brand-700)] hover:underline"
-                          target="_blank"
-                          rel="noopener noreferrer"
                         >
                           View
-                          <ExternalLink size={11} aria-hidden="true" />
                         </Link>
                       ) : (
                         <span className="text-[var(--color-ink-subtle)]">—</span>

@@ -39,17 +39,52 @@ export function ListingRowActions({ listing }: Props) {
   const [suspendReason, setSuspendReason] = React.useState("");
   const [deletePrompt, setDeletePrompt] = React.useState(false);
   const [deleteReason, setDeleteReason] = React.useState("");
+  // Feature picker state (fix 20)
+  const [featurePickerOpen, setFeaturePickerOpen] = React.useState(false);
+  const [featureDays, setFeatureDays] = React.useState(30);
 
   const featured = isFeatured(listing);
   const isPaused = listing.status === "paused";
+
+  // Ref for outside-click + Esc dismiss (fix 19)
+  const detailsRef = React.useRef<HTMLDetailsElement>(null);
 
   function clearPrompts() {
     setSuspendPrompt(false);
     setSuspendReason("");
     setDeletePrompt(false);
     setDeleteReason("");
+    setFeaturePickerOpen(false);
     setError(null);
   }
+
+  // Outside-click + Esc dismiss (fix 19)
+  React.useEffect(() => {
+    const details = detailsRef.current;
+    if (!details) return;
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && details && details.open) {
+        details.removeAttribute("open");
+        clearPrompts();
+      }
+    }
+
+    function handleClickOutside(e: MouseEvent) {
+      if (details && details.open && !details.contains(e.target as Node)) {
+        details.removeAttribute("open");
+        clearPrompts();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handleAction(fn: () => Promise<{ ok: boolean; error?: string }>) {
     setError(null);
@@ -72,6 +107,7 @@ export function ListingRowActions({ listing }: Props) {
 
   return (
     <details
+      ref={detailsRef}
       className="relative inline-block"
       onToggle={(e) => {
         // Close details clears any open prompts
@@ -170,20 +206,57 @@ export function ListingRowActions({ listing }: Props) {
         )}
 
         {/* ── Feature / Unfeature ── */}
-        {!featured && (
+        {!featured && !featurePickerOpen && (
           <button
             type="button"
             className={itemBase}
             disabled={isPending}
-            onClick={() =>
-              handleAction(() =>
-                featureListing({ listingId: listing.id, daysAhead: 30 }),
-              )
-            }
+            onClick={() => setFeaturePickerOpen(true)}
           >
             <Star size={14} className="shrink-0 text-[var(--color-brand-700)]" aria-hidden="true" />
-            {isPending ? "Featuring…" : "Feature for 30 days"}
+            Feature listing…
           </button>
+        )}
+
+        {!featured && featurePickerOpen && (
+          <div className="px-3 py-2 space-y-2">
+            <p className="text-xs font-semibold text-[var(--color-ink-muted)] uppercase tracking-wide">
+              Feature for
+            </p>
+            <select
+              value={featureDays}
+              onChange={(e) => setFeatureDays(Number(e.target.value))}
+              className="w-full rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-bg)] px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-500)]"
+              disabled={isPending}
+            >
+              <option value={7}>7 days</option>
+              <option value={14}>14 days</option>
+              <option value={30}>30 days</option>
+              <option value={60}>60 days</option>
+              <option value={90}>90 days</option>
+            </select>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={isPending}
+                className="flex-1 inline-flex items-center justify-center h-8 rounded-lg bg-[var(--color-brand-500)] text-[var(--color-ink)] text-xs font-semibold hover:bg-[var(--color-brand-600)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                onClick={() =>
+                  handleAction(() =>
+                    featureListing({ listingId: listing.id, daysAhead: featureDays }),
+                  )
+                }
+              >
+                {isPending ? "Featuring…" : `Feature for ${featureDays} days`}
+              </button>
+              <button
+                type="button"
+                className="h-8 px-3 rounded-lg text-xs font-semibold text-[var(--color-ink-muted)] hover:bg-[var(--color-surface)] transition-colors"
+                onClick={() => setFeaturePickerOpen(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         )}
 
         {featured && (

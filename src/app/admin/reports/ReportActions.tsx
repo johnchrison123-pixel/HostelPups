@@ -21,8 +21,8 @@ export function ReportActions({ report }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   function handleSubmit() {
-    if (mode === "resolve" && !note.trim()) {
-      setError("A resolution note is required.");
+    if (mode === "resolve" && note.trim().length < 3) {
+      setError("Resolution note must be at least 3 characters.");
       return;
     }
     setError(null);

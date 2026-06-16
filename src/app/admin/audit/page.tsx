@@ -19,24 +19,27 @@ export const dynamic = "force-dynamic";
 const PAGE_SIZE = 100;
 
 /* -----------------------------------------------------------------------
-   Action → human-readable label (mirrors the dashboard's AUDIT_LABEL map)
+   Action → human-readable label. MUST match the `AdminActionName` type
+   in `src/lib/admin-audit.ts`. Anything in that type should appear here.
 ------------------------------------------------------------------------ */
 const AUDIT_LABEL: Record<string, string> = {
   ban_user: "Banned user",
   unban_user: "Unbanned user",
   edit_profile: "Edited profile",
-  set_role: "Changed user role",
   delete_user: "Deleted user",
   force_logout: "Forced logout",
+  set_role: "Changed user role",
   approve_kyc: "Approved KYC",
   reject_kyc: "Rejected KYC",
-  edit_owner: "Edited owner",
   suspend_owner: "Suspended owner",
+  edit_owner: "Edited owner",
+  set_owner_tier: "Set owner tier",
   suspend_listing: "Suspended listing",
   restore_listing: "Restored listing",
   feature_listing: "Featured listing",
   unfeature_listing: "Unfeatured listing",
   delete_listing: "Deleted listing",
+  edit_listing: "Edited listing",
   close_inquiry: "Closed inquiry",
   reopen_inquiry: "Reopened inquiry",
   delete_message: "Deleted message",
@@ -45,25 +48,29 @@ const AUDIT_LABEL: Record<string, string> = {
   mark_payment_failed: "Marked payment failed",
   resolve_report: "Resolved report",
   dismiss_report: "Dismissed report",
+  view_target: "Viewed target",
 };
 
-/* Hardcoded action list for the filter dropdown */
+/* Hardcoded action list for the filter dropdown — same order as AUDIT_LABEL.
+   Mirrors `AdminActionName` exactly. */
 const KNOWN_ACTIONS = [
   "ban_user",
   "unban_user",
   "edit_profile",
-  "set_role",
   "delete_user",
   "force_logout",
+  "set_role",
   "approve_kyc",
   "reject_kyc",
-  "edit_owner",
   "suspend_owner",
+  "edit_owner",
+  "set_owner_tier",
   "suspend_listing",
   "restore_listing",
   "feature_listing",
   "unfeature_listing",
   "delete_listing",
+  "edit_listing",
   "close_inquiry",
   "reopen_inquiry",
   "delete_message",
@@ -72,6 +79,7 @@ const KNOWN_ACTIONS = [
   "mark_payment_failed",
   "resolve_report",
   "dismiss_report",
+  "view_target",
 ];
 
 const TARGET_TABLES = [
@@ -83,7 +91,6 @@ const TARGET_TABLES = [
   "reviews",
   "payments",
   "reports",
-  "admin_actions",
 ];
 
 const SINCE_OPTIONS: Array<{ value: string; label: string }> = [
@@ -316,7 +323,9 @@ export default async function AdminAuditPage({ searchParams }: PageProps) {
                     className="hover:bg-[var(--color-surface)] transition-colors"
                   >
                     <td className="px-4 py-3 text-[var(--color-ink-muted)] whitespace-nowrap text-xs">
-                      {timeAgo(row.created_at)}
+                      <span title={new Date(row.created_at).toISOString()}>
+                        {timeAgo(row.created_at)}
+                      </span>
                     </td>
                     <td className="px-4 py-3 font-medium whitespace-nowrap">
                       {row.admin_name ?? (

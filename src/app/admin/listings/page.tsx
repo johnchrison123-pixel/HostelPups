@@ -51,7 +51,7 @@ const STATUS_TONES: Record<
 > = {
   live: "verified",
   pending_review: "warning",
-  paused: "danger",
+  paused: "warning",
   draft: "default",
   full: "brand",
   rejected: "danger",
@@ -387,6 +387,8 @@ export default async function AdminListingsPage({ searchParams }: PageProps) {
                                 (no business name)
                               </span>
                             )}
+                            {/* TODO: show "Banned owner" chip here once is_banned is
+                                added to AdminListingRow via searchAdminListings join */}
                           </p>
                           <p className="text-xs text-[var(--color-ink-muted)] truncate">
                             {row.owner_name ?? row.owner_id}
@@ -524,7 +526,7 @@ export default async function AdminListingsPage({ searchParams }: PageProps) {
           </div>
 
           {/* Pagination */}
-          {total > PAGE_SIZE && (
+          {Math.ceil(total / PAGE_SIZE) > 1 && (
             <div className="mt-5 flex items-center justify-between gap-3">
               <p className="text-xs text-[var(--color-ink-muted)]">
                 Page {page} of {totalPages} &middot;{" "}

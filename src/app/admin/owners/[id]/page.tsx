@@ -141,14 +141,12 @@ export default async function AdminOwnerDetailPage({ params }: Props) {
   const [kycDocs, listingsRes, inquiriesRes] = await Promise.all([
     fetchKycDocs(id),
     searchAdminListings({ owner_id: id, limit: 100, offset: 0 }),
-    searchInquiries({ limit: 200, offset: 0 }),
+    searchInquiries(
+      { owner_id: id, limit: 10 } as Parameters<typeof searchInquiries>[0] & { owner_id: string },
+    ),
   ]);
 
-  // The query helper filters inquiries by user — but we want inquiries
-  // *received* by this owner. Filter on the joined owner_id field.
-  const ownerInquiries: AdminInquiryRow[] = inquiriesRes.rows
-    .filter((r) => r.owner_id === id)
-    .slice(0, 10);
+  const ownerInquiries: AdminInquiryRow[] = inquiriesRes.rows;
 
   const businessName =
     owner.business_name && owner.business_name.trim().length > 0
@@ -331,7 +329,7 @@ export default async function AdminOwnerDetailPage({ params }: Props) {
 
       {/* Admin action panels (client) */}
       <section aria-label="Owner admin actions" className="mt-6">
-        <OwnerActions owner={owner} />
+        <OwnerActions owner={owner} kycDocsCount={kycDocs.length} />
       </section>
 
       {/* Listings */}
@@ -359,24 +357,36 @@ export default async function AdminOwnerDetailPage({ params }: Props) {
             This owner hasn&apos;t created any listings yet.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-[var(--color-surface)] text-left text-xs font-semibold uppercase tracking-wide text-[var(--color-ink-subtle)]">
-                  <th className="px-4 py-3">Title</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">City</th>
-                  <th className="px-4 py-3 text-right">Vacancies</th>
-                  <th className="px-4 py-3">Updated</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--color-border)]">
-                {listingsRes.rows.map((row) => (
-                  <ListingRow key={row.id} row={row} />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-[var(--color-surface)] text-left text-xs font-semibold uppercase tracking-wide text-[var(--color-ink-subtle)]">
+                    <th className="px-4 py-3">Title</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">City</th>
+                    <th className="px-4 py-3 text-right">Vacancies</th>
+                    <th className="px-4 py-3">Updated</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--color-border)]">
+                  {listingsRes.rows.map((row) => (
+                    <ListingRow key={row.id} row={row} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {owner.listing_count > 100 && (
+              <div className="px-4 py-3 border-t border-[var(--color-border)]">
+                <Link
+                  href={`/admin/listings?owner_id=${owner.id}`}
+                  className="text-sm font-semibold text-[var(--color-brand-700)] hover:underline"
+                >
+                  View all {owner.listing_count} listings →
+                </Link>
+              </div>
+            )}
+          </>
         )}
       </section>
 

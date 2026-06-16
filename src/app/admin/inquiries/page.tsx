@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { MessageSquare, ExternalLink } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 import { buildMetadata } from "@/lib/seo";
 import { searchInquiries } from "@/lib/admin-queries";
 import { Badge } from "@/components/ui/Badge";
@@ -219,13 +219,11 @@ export default async function AdminInquiriesPage({ searchParams }: PageProps) {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2 flex-wrap">
                         <Link
-                          href={`/owner/inquiries/${row.id}`}
+                          href={`/admin/inquiries/${row.id}`}
                           className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--color-brand-700)] hover:underline"
-                          target="_blank"
-                          rel="noopener noreferrer"
                         >
+                          <MessageSquare size={11} aria-hidden="true" />
                           Open chat
-                          <ExternalLink size={11} aria-hidden="true" />
                         </Link>
                         <InquiryRowActions
                           inquiryId={row.id}

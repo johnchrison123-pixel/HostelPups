@@ -14,6 +14,7 @@ import {
   Phone,
   Building2,
   ListChecks,
+  ShieldCheck,
 } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { Container } from "@/components/ui/Container";
@@ -86,6 +87,7 @@ export function Header() {
   const [scrolled, setScrolled] = React.useState(false);
   const [user, setUser] = React.useState<User | null>(null);
   const [authReady, setAuthReady] = React.useState(false);
+  const [isAdmin, setIsAdmin] = React.useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = React.useState(false);
   const profileMenuRef = React.useRef<HTMLDivElement | null>(null);
 
@@ -100,13 +102,30 @@ export function Header() {
   React.useEffect(() => {
     const supabase = createClient();
     let cancelled = false;
+
+    // Use the is_admin() RPC instead of a direct profile read — it's
+    // SECURITY DEFINER so it bypasses RLS (immune to policy recursion
+    // and to any future tightening of profiles SELECT policies).
+    async function checkAdmin() {
+      try {
+        const { data } = await supabase.rpc("is_admin");
+        if (!cancelled) setIsAdmin(Boolean(data));
+      } catch {
+        if (!cancelled) setIsAdmin(false);
+      }
+    }
+
     supabase.auth.getUser().then(({ data }) => {
       if (cancelled) return;
       setUser(data.user);
       setAuthReady(true);
+      if (data.user) checkAdmin();
+      else setIsAdmin(false);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      if (session?.user) checkAdmin();
+      else setIsAdmin(false);
     });
     return () => {
       cancelled = true;
@@ -281,6 +300,19 @@ export function Header() {
                         <p className="text-sm font-medium truncate">{user.email}</p>
                       </div>
 
+                      {/* Admin shortcut — only visible to admins */}
+                      {isAdmin && (
+                        <Link
+                          href="/admin"
+                          onClick={() => setProfileMenuOpen(false)}
+                          role="menuitem"
+                          className="flex items-center gap-2.5 px-3 py-2.5 text-sm font-bold bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition-colors border-b border-emerald-200"
+                        >
+                          <ShieldCheck size={15} aria-hidden={true} />
+                          Admin panel
+                        </Link>
+                      )}
+
                       {/* Account links */}
                       <ul className="py-1">
                         {accountItems.map((item) => {
@@ -386,6 +418,16 @@ export function Header() {
                       </p>
                     </div>
                   </div>
+                  {isAdmin && (
+                    <Link
+                      href="/admin"
+                      onClick={() => setOpen(false)}
+                      className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-base font-bold bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition-colors"
+                    >
+                      <ShieldCheck size={18} aria-hidden={true} />
+                      Admin panel
+                    </Link>
+                  )}
                   {accountItems.map((item) => {
                     const Icon = item.icon;
                     return (

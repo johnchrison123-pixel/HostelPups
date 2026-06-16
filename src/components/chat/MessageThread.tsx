@@ -40,31 +40,50 @@ export function MessageThread({
   // Track which `initialMessages` reference we last seeded from, so a server
   // revalidation (e.g. after sendMessage) can refresh the thread without
   // clobbering optimistic realtime appends.
+  // `localExtras` holds realtime-driven INSERTs not yet reflected in
+  // `initialMessages`; `localUpdates` holds id→patch for UPDATE events;
+  // `localDeletes` holds tombstoned ids from DELETE events.
   const [localExtras, setLocalExtras] = React.useState<ChatMessage[]>([]);
+  const [localUpdates, setLocalUpdates] = React.useState<
+    Record<string, ChatMessage>
+  >({});
+  const [localDeletes, setLocalDeletes] = React.useState<Set<string>>(
+    () => new Set(),
+  );
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
 
   // Merge server-seeded initial messages + any realtime-only appends.
   // Dedupe by message id since revalidatePath may surface the same row a
-  // tick after the realtime channel did.
+  // tick after the realtime channel did. After dedupe we explicitly sort
+  // by created_at ASC so a burst of realtime INSERTs (which can arrive in
+  // any order under network jitter) renders in true chronological order.
+  // — H5 fix.
   const messages = React.useMemo<ChatMessage[]>(() => {
     const seen = new Set<string>();
     const out: ChatMessage[] = [];
-    for (const m of initialMessages) {
-      if (!seen.has(m.id)) {
-        seen.add(m.id);
-        out.push(m);
+    const merge = (m: ChatMessage) => {
+      if (seen.has(m.id) || localDeletes.has(m.id)) return;
+      seen.add(m.id);
+      const patched = localUpdates[m.id];
+      out.push(patched ? { ...m, ...patched } : m);
+    };
+    for (const m of initialMessages) merge(m);
+    for (const m of localExtras) merge(m);
+    out.sort((a, b) => {
+      // ISO-8601 strings sort lexicographically the same as chronologically,
+      // but be defensive and parse anyway.
+      const ta = Date.parse(a.created_at);
+      const tb = Date.parse(b.created_at);
+      if (Number.isNaN(ta) || Number.isNaN(tb)) {
+        return a.created_at.localeCompare(b.created_at);
       }
-    }
-    for (const m of localExtras) {
-      if (!seen.has(m.id)) {
-        seen.add(m.id);
-        out.push(m);
-      }
-    }
+      return ta - tb;
+    });
     return out;
-  }, [initialMessages, localExtras]);
+  }, [initialMessages, localExtras, localUpdates, localDeletes]);
 
-  // Realtime subscription
+  // Realtime subscription: INSERT (append), UPDATE (patch), DELETE (tombstone).
+  // — H4 fix.
   React.useEffect(() => {
     const supabase = createClient();
     const channel = supabase
@@ -72,17 +91,36 @@ export function MessageThread({
       .on(
         "postgres_changes",
         {
-          event: "INSERT",
+          event: "*",
           schema: "public",
           table: "messages",
           filter: `inquiry_id=eq.${inquiryId}`,
         },
         (payload) => {
-          const newRow = payload.new as ChatMessage;
-          setLocalExtras((prev) => {
-            if (prev.some((m) => m.id === newRow.id)) return prev;
-            return [...prev, newRow];
-          });
+          if (payload.eventType === "INSERT") {
+            const newRow = payload.new as ChatMessage;
+            setLocalExtras((prev) => {
+              if (prev.some((m) => m.id === newRow.id)) return prev;
+              return [...prev, newRow];
+            });
+          } else if (payload.eventType === "UPDATE") {
+            const newRow = payload.new as ChatMessage;
+            setLocalExtras((prev) =>
+              prev.map((m) => (m.id === newRow.id ? newRow : m)),
+            );
+            setLocalUpdates((prev) => ({ ...prev, [newRow.id]: newRow }));
+          } else if (payload.eventType === "DELETE") {
+            const oldRow = payload.old as Partial<ChatMessage> | null;
+            const id = oldRow?.id;
+            if (!id) return;
+            setLocalExtras((prev) => prev.filter((m) => m.id !== id));
+            setLocalDeletes((prev) => {
+              if (prev.has(id)) return prev;
+              const next = new Set(prev);
+              next.add(id);
+              return next;
+            });
+          }
         },
       )
       .subscribe();

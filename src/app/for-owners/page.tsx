@@ -13,7 +13,7 @@ import { formatPrice } from "@/lib/utils";
 export const metadata: Metadata = buildMetadata({
   title: "List Your PG / Hostel / Flat — HostelPups for Owners",
   description:
-    "Reach 10,000+ verified renters in Kochi, Bangalore, Chennai. Full-service includes photoshoot + KYC + verification. Self-serve from Rs 999/year. Founding owner pricing.",
+    "Be among our first listed owners in Kochi, Bangalore, Chennai. Full-service includes photoshoot + KYC + verification. Self-serve from Rs 999/year. Founding owner pricing.",
   path: "/for-owners",
 });
 
@@ -64,7 +64,7 @@ const addOns = [
     icon: ShieldCheck,
     title: "Verification Badge",
     price: `${formatPrice(PRICING.owner.verification.yearly)} / year`,
-    body: "Video call + live location + Google research. Verified owners get 3.2x more inquiries.",
+    body: "Video call + live location + Google research. Verified badge builds renter trust and boosts contact rates.",
   },
   {
     icon: Zap,
@@ -96,8 +96,8 @@ export default function ForOwnersPage() {
           </span>
         </h1>
         <p className="mt-6 text-lg sm:text-xl text-[var(--color-ink-muted)] max-w-2xl mx-auto leading-relaxed">
-          India&apos;s fastest-growing hostel marketplace. <strong className="text-[var(--color-ink)]">
-          10,000+ verified renters actively searching.</strong> Direct chat. Zero brokerage. KYC trust signal.
+          India&apos;s newest verified PG marketplace — <strong className="text-[var(--color-ink)]">
+          be among our founding owners.</strong> Direct chat. Zero brokerage. KYC trust signal.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Button href="/owner/signup" variant="cta" size="lg">

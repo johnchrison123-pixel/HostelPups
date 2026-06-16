@@ -33,31 +33,55 @@ interface IncomingCallModalProps {
 
 const AUTO_MISS_MS = 60_000;
 
+/**
+ * H10 fix: the auto-miss timer used to keep ticking even after the user
+ * had clicked Accept (and the accept server-action was mid-flight). If
+ * the accept failed and was re-tried 50s later, the 60s mark could fire
+ * and `markCallMissed` would write `missed` over a call that the callee
+ * was actively trying to pick up. We now treat the modal as a tiny
+ * state machine: only `ringing` runs the auto-miss countdown.
+ */
+type ModalState =
+  | "ringing"
+  | "accepting"
+  | "rejected"
+  | "missed"
+  | "cancelled"
+  | "accepted";
+
 export function IncomingCallModal({ info, onClose }: IncomingCallModalProps) {
   const router = useRouter();
-  const [busy, setBusy] = React.useState(false);
+  const [state, setState] = React.useState<ModalState>("ringing");
   const [error, setError] = React.useState<string | null>(null);
 
-  // Auto-miss after 60s.
+  const busy = state === "accepting";
+
+  // Auto-miss after 60s — but ONLY while the modal is in the `ringing`
+  // state. If the user tapped Accept and we're in `accepting`, the timer
+  // is torn down. If accept FAILS we drop back to `ringing` below, which
+  // re-arms a fresh 60s timer (effect's cleanup + re-run).
   React.useEffect(() => {
+    if (state !== "ringing") return;
     const timer = setTimeout(async () => {
       try {
         await markCallMissed(info.callId);
       } catch {
         // best-effort
       } finally {
+        setState("missed");
         onClose();
       }
     }, AUTO_MISS_MS);
     return () => clearTimeout(timer);
-  }, [info.callId, onClose]);
+  }, [info.callId, onClose, state]);
 
   async function handleAccept() {
-    if (busy) return;
-    setBusy(true);
+    if (state !== "ringing") return;
+    setState("accepting");
     setError(null);
     try {
       await acceptCall(info.callId);
+      setState("accepted");
       // Hand off to the in-call screen. The peer side (caller) is already
       // subscribed to the realtime channel and will react to the status change.
       router.push(`/call/${info.callId}?role=callee`);
@@ -65,21 +89,24 @@ export function IncomingCallModal({ info, onClose }: IncomingCallModalProps) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Could not accept call";
       setError(msg);
-      setBusy(false);
+      // Step back to `ringing` so (a) the user can re-tap Accept and (b)
+      // the auto-miss effect re-arms a fresh 60s timer.
+      setState("ringing");
     }
   }
 
   async function handleDecline() {
-    if (busy) return;
-    setBusy(true);
+    if (state !== "ringing") return;
+    setState("accepting");
     setError(null);
     try {
       await rejectCall(info.callId);
+      setState("rejected");
       onClose();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Could not decline call";
       setError(msg);
-      setBusy(false);
+      setState("ringing");
     }
   }
 

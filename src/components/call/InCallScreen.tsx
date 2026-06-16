@@ -123,6 +123,13 @@ export function InCallScreen({ call, role, myUserId }: InCallScreenProps) {
       setErrorMsg(
         "Couldn't connect — your network may be blocking calls. Try again from a different network or contact support.",
       );
+      // M5: broadcast a hangup over signaling BEFORE persisting failCall.
+      // Without this, the remote peer is left staring at "Connecting…"
+      // until their own 15s timer fires — instead we tear them down
+      // immediately. Best-effort: if signaling closed already, the DB
+      // update below will still be observed via the realtime call-row
+      // subscription on their side.
+      void signalingRef.current?.send({ type: "hangup" }).catch(() => {});
       void failCall(call.id).catch(() => {});
     }, CONNECTION_TIMEOUT_MS);
     return () => {
@@ -264,6 +271,35 @@ export function InCallScreen({ call, role, myUserId }: InCallScreenProps) {
               );
             callRowChannel = channel;
             channel.subscribe();
+
+            // H2: race window between server-render and realtime subscribe.
+            // The callee may have hit Accept BEFORE we subscribed, so the
+            // UPDATE event already fired and we'd miss it. Re-fetch once
+            // immediately after subscribing — if status is already past
+            // 'ringing', kick off the right path manually.
+            void (async () => {
+              try {
+                const { data } = await supabase
+                  .from("calls")
+                  .select("status")
+                  .eq("id", call.id)
+                  .maybeSingle();
+                if (cancelled) return;
+                const status = (data as { status?: string } | null)?.status;
+                if (!status) return;
+                if (status === "accepted") {
+                  void startCallerOfferFlow(peer);
+                } else if (status === "rejected" || status === "missed") {
+                  setConnState("ended");
+                  setErrorMsg(
+                    status === "rejected" ? "Call declined." : "No answer.",
+                  );
+                  setTimeout(() => router.push("/calls"), 800);
+                }
+              } catch {
+                // tolerate — realtime channel is the primary path anyway.
+              }
+            })();
           }
         } else {
           // Callee waits for the caller_offer. Mic is requested AFTER the

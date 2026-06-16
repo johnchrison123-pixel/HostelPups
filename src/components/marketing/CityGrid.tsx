@@ -8,7 +8,7 @@ const cities = [
     name: "Kochi",
     slug: "kochi",
     state: "Kerala",
-    properties: "500+ verified",
+    properties: "Curated PGs — growing daily",
     image:
       "linear-gradient(135deg, #F0B429 0%, #FCE588 100%)",
     areas: ["Edappally", "Kakkanad", "Kaloor", "Vyttila", "Palarivattom"],

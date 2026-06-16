@@ -1,22 +1,24 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 /**
  * Tiny client component used inside OwnerSidebar to actually sign the
- * user out — calls supabase.auth.signOut() and hard-navigates to /owner/login
+ * user out — calls supabase.auth.signOut() and then navigates to /owner/login
  * so all cached server data is dropped from the navigation cache.
  *
- * Why a hard reload (window.location) instead of router.push():
- *   - Sign-out clears auth cookies. Any cached server-component output that
- *     was rendered while signed in must be discarded.
- *   - A hard reload is the simplest way to guarantee that — the alternative
- *     is router.refresh() but it doesn't always evict prefetched pages.
+ * We await signOut() before navigating so the auth cookies are cleared
+ * before the server renders the next page (avoids a race where the
+ * middleware refreshes a stale session from the previous owner).
+ * router.push() + router.refresh() is preferred over window.location so
+ * Next.js middleware fires cleanly and the RSC cache is invalidated.
  */
 export function OwnerSignOutButton() {
   const [pending, setPending] = React.useState(false);
+  const router = useRouter();
 
   async function handleSignOut() {
     if (pending) return;
@@ -25,10 +27,11 @@ export function OwnerSignOutButton() {
       const supabase = createClient();
       await supabase.auth.signOut();
     } catch {
-      // ignore — we'll redirect regardless
-    } finally {
-      window.location.href = "/owner/login";
+      // ignore sign-out errors — proceed to redirect regardless
     }
+    // Navigate only after signOut resolves so auth cookies are cleared first.
+    router.push("/owner/login");
+    router.refresh();
   }
 
   return (

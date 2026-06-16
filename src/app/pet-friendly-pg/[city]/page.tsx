@@ -72,7 +72,7 @@ export default async function Page({ params }: Props) {
         "Society approval verified for pet-friendly listings — no last-minute eviction.",
         "Transparent pet deposit shown upfront, with our owner agreement that it's refundable in full if you leave with no property damage.",
         "Filter by pet type and size — small dog vs Labrador vs cat — owners specify capacity.",
-        "Move-in guarantee: if the owner backtracks on pet permission after you arrive, we refund.",
+        "Visit-protection guarantee: if the owner backtracks on pet permission or the listing is materially misrepresented, we refund your platform fee.",
       ]}
       />
     </>

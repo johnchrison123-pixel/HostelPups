@@ -1,124 +1,57 @@
 import * as React from "react";
-import { Star, Quote } from "lucide-react";
 import { Container } from "@/components/ui/Container";
+import { Button } from "@/components/ui/Button";
 
-interface Testimonial {
-  initials: string;
-  name: string;
-  role: string;
-  city: string;
-  quote: string;
-  // Gradient backing the initials chip
-  gradient: string;
-}
-
-const TESTIMONIALS: Testimonial[] = [
-  {
-    initials: "PM",
-    name: "Priya Menon",
-    role: "MCA student",
-    city: "Kochi",
-    quote:
-      "Found a PG five minutes from Rajagiri in two days. Owner answered every WhatsApp instantly. Zero broker fee — saved me Rs 8,000.",
-    gradient: "linear-gradient(135deg, #F0B429 0%, #EC4899 100%)",
-  },
-  {
-    initials: "AK",
-    name: "Arjun Krishnan",
-    role: "Backend engineer",
-    city: "Bangalore",
-    quote:
-      "I'm a bachelor and most listings used to ghost me. HostelPups filters that out — the PGs that show up actually accept me. Game changer.",
-    gradient: "linear-gradient(135deg, #6366F1 0%, #14B8A6 100%)",
-  },
-  {
-    initials: "A&R",
-    name: "Anjali & Rohan",
-    role: "Newly married couple",
-    city: "Chennai",
-    quote:
-      "We searched for weeks before — landlords kept saying no. HostelPups had a couple-friendly tag right there. Booked a 1BHK in a week.",
-    gradient: "linear-gradient(135deg, #EC4899 0%, #F59E0B 100%)",
-  },
-];
-
-function StarRow({ value = 5 }: { value?: number }) {
-  return (
-    <div
-      className="inline-flex items-center gap-0.5"
-      role="img"
-      aria-label={`${value} out of 5 stars`}
-    >
-      {Array.from({ length: 5 }).map((_, i) => (
-        <Star
-          key={i}
-          size={14}
-          className={
-            i < value
-              ? "fill-amber-400 text-amber-400"
-              : "fill-none text-[var(--color-border-strong)]"
-          }
-          aria-hidden="true"
-        />
-      ))}
-    </div>
-  );
-}
-
+/**
+ * Testimonials — replaced with Early Adopter Program CTA.
+ *
+ * Reason: the original 3 testimonials (Priya Menon, Arjun Krishnan,
+ * Anjali & Rohan) were fabricated personas with no real users behind them.
+ * HostelPups is in beta — we have 0 verified reviews. This section is
+ * honest about that and turns the trust gap into a conversion hook.
+ */
 export function Testimonials() {
   return (
     <section className="py-16 sm:py-24 bg-[var(--color-bg)]">
       <Container>
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <p className="text-sm font-semibold text-[var(--color-brand-700)] uppercase tracking-wider">
-            Real Renters, Real Stories
-          </p>
+        <div className="text-center max-w-2xl mx-auto mb-10">
+          <span className="inline-block rounded-full bg-amber-100 border border-amber-300 text-amber-700 text-xs font-bold uppercase tracking-wider px-3 py-1 mb-4">
+            Reviews — Coming Soon
+          </span>
           <h2 className="mt-2 text-3xl sm:text-4xl font-black tracking-tight">
-            Loved by renters across India
+            Our beta launch
           </h2>
           <p className="mt-4 text-lg text-[var(--color-ink-muted)]">
-            Students, professionals, couples, pet parents — people the old brokers ignored, now finding homes in days, not months.
+            Reviews from real renters and owners are on their way. HostelPups
+            is brand new — we&apos;re onboarding our first owners and renters
+            right now.
           </p>
         </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {TESTIMONIALS.map((t) => (
-            <figure
-              key={t.name}
-              className="relative flex flex-col rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-6 shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] hover:border-[var(--color-brand-300)] transition-all"
+        <div className="max-w-2xl mx-auto rounded-2xl border-2 border-[var(--color-brand-300)] bg-[var(--color-bg-elevated)] p-8 sm:p-10 text-center shadow-[var(--shadow-md)]">
+          <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-[var(--color-ink)]">
+            Be among our first verified renters
+          </h3>
+          <p className="mt-4 text-base sm:text-lg text-[var(--color-ink-muted)] leading-relaxed">
+            Real reviews from real renters and owners are coming soon. Want in
+            early? Get{" "}
+            <strong className="text-[var(--color-ink)]">
+              founding-member access — free for 6 months
+            </strong>{" "}
+            when you join our early adopter group.
+          </p>
+          <div className="mt-8">
+            <Button
+              href="/contact?source=adopter"
+              variant="cta"
+              size="lg"
             >
-              {/* Decorative quote mark */}
-              <Quote
-                size={28}
-                className="absolute top-4 right-4 text-[var(--color-brand-200)]"
-                aria-hidden="true"
-              />
-
-              <StarRow value={5} />
-
-              <blockquote className="mt-3 text-[var(--color-ink)] text-base leading-relaxed">
-                &ldquo;{t.quote}&rdquo;
-              </blockquote>
-
-              <figcaption className="mt-5 pt-4 border-t border-[var(--color-border)] flex items-center gap-3">
-                <div
-                  className="h-11 w-11 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm"
-                  style={{ background: t.gradient }}
-                  aria-hidden="true"
-                >
-                  {t.initials}
-                </div>
-                <div className="min-w-0">
-                  <div className="font-semibold text-[var(--color-ink)] leading-tight">
-                    {t.name}
-                  </div>
-                  <div className="text-xs text-[var(--color-ink-muted)] leading-tight mt-0.5">
-                    {t.role} · {t.city}
-                  </div>
-                </div>
-              </figcaption>
-            </figure>
-          ))}
+              Join the early adopter list
+            </Button>
+          </div>
+          <p className="mt-4 text-sm text-[var(--color-ink-subtle)]">
+            No credit card required. We&apos;ll reach out personally to get you set up.
+          </p>
         </div>
       </Container>
     </section>

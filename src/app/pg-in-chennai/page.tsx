@@ -8,7 +8,7 @@ export const revalidate = 60;
 export const metadata: Metadata = buildMetadata({
   title: "PG in Chennai — Verified Hostels Across OMR & City",
   description:
-    "Find verified PGs in Chennai — OMR, Velachery, Anna Nagar, T. Nagar. Direct chat with KYC-verified owners. Launching Q4.",
+    "Find verified PGs in Chennai — OMR, Velachery, Anna Nagar, T. Nagar. Direct chat with KYC-verified owners. Live now, supply growing daily.",
   path: "/pg-in-chennai",
   keywords: [
     "PG in Chennai",
@@ -52,7 +52,7 @@ export default function ChennaiPage() {
         city="chennai"
         state="Tamil Nadu"
         areas={areas}
-        intro="Chennai PGs without the runaround. From OMR tech-corridor PGs to family-friendly flats in Anna Nagar — find verified listings, chat with owners directly. Launching with verified Chennai PGs in Q4."
+        intro="Chennai PGs without the runaround. From OMR tech-corridor PGs to family-friendly flats in Anna Nagar — find verified listings, chat with owners directly. Live and growing — verified Chennai PGs onboarding now."
       />
     </>
   );

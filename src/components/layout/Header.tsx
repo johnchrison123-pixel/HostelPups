@@ -114,7 +114,7 @@ export function Header() {
     };
   }, []);
 
-  // Close profile dropdown on outside click.
+  // Close profile dropdown on outside click or Escape key.
   React.useEffect(() => {
     if (!profileMenuOpen) return;
     function onDown(e: MouseEvent) {
@@ -123,8 +123,15 @@ export function Header() {
         setProfileMenuOpen(false);
       }
     }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setProfileMenuOpen(false);
+    }
     document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
   }, [profileMenuOpen]);
 
   async function handleLogout() {

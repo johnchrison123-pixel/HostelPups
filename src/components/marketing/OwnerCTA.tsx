@@ -8,13 +8,13 @@ import { formatPrice } from "@/lib/utils";
 const benefits = [
   {
     icon: Building2,
-    title: "Reach 10,000+ verified renters",
-    body: "Students, professionals, couples — all actively searching.",
+    title: "Be among our first listed owners",
+    body: "Students, professionals, couples — all searching for verified PGs. Founding owners get priority placement.",
   },
   {
     icon: BadgeCheck,
-    title: "Verified badge = more inquiries",
-    body: "KYC-verified owners get 3.2x more contacts than unverified.",
+    title: "Verified badge = more trust",
+    body: "KYC-verified owners build renter trust and stand out in search results.",
   },
   {
     icon: Camera,

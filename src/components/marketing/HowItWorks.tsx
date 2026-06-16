@@ -23,7 +23,7 @@ const steps = [
     icon: KeyRound,
     title: "Visit, choose, move in",
     body:
-      "Schedule visits through HostelPups. Negotiate directly. Move-in guarantee — refund if the PG isn't as described.",
+      "Schedule visits through HostelPups. Negotiate directly. Visit-protection guarantee — platform fee refunded if the PG is materially misrepresented.",
   },
 ];
 

@@ -244,9 +244,9 @@ export async function CityLanding({
               </p>
             </li>
             <li className="rounded-2xl bg-[var(--color-bg-elevated)] border border-[var(--color-border)] p-6">
-              <h3 className="font-bold mb-2">Move-In Guarantee</h3>
+              <h3 className="font-bold mb-2">Visit Protection</h3>
               <p className="text-sm text-[var(--color-ink-muted)]">
-                If the {cityName} PG isn&apos;t as described, we refund your platform fee. No fine print.
+                If the {cityName} PG&apos;s photos or amenities are materially misrepresented on your visit, we refund your platform fee.
               </p>
             </li>
           </ul>

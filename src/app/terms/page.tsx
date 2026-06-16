@@ -51,8 +51,11 @@ export default function TermsPage() {
           <h2 className="text-xl font-bold text-[var(--color-ink)] mb-2">4. Payments &amp; refunds</h2>
           <p>
             All payments are non-refundable except: (a) duplicate charges, (b) clear platform errors, (c) the
-            move-in guarantee where the PG is materially different from its listing. Refunds processed within
-            7 business days to original payment method.
+            visit-protection guarantee — if a listing&apos;s photos or amenities are materially misrepresented
+            compared to the physical property on the day of your visit, HostelPups refunds your{" "}
+            <strong className="text-[var(--color-ink)]">platform fee only</strong> (we do not hold rent or
+            deposits — those are between you and the owner). Refunds processed within 7 business days to the
+            original payment method.
           </p>
         </section>
 

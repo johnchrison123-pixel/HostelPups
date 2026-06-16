@@ -19,20 +19,8 @@ import {
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/client";
 import { createAccount } from "@/lib/auth-actions";
-import { CITY_NAMES, FULL_SERVICE_CITIES } from "@/lib/site";
-import { cn } from "@/lib/utils";
-
-/**
- * Validate the `?next=` redirect param so we don't open up the signup flow
- * to arbitrary open-redirects.
- */
-function safeNext(raw: string | null): string | null {
-  if (!raw) return null;
-  if (!raw.startsWith("/")) return null;
-  if (raw.startsWith("//")) return null;
-  if (raw.startsWith("/\\")) return null;
-  return raw;
-}
+import { CITY_NAMES, FULL_SERVICE_CITIES, LAUNCHED_CITIES } from "@/lib/site";
+import { cn, safeNext } from "@/lib/utils";
 
 /**
  * Owner signup — single-step password auth.
@@ -51,11 +39,10 @@ const PHONE_REGEX = /^[6-9]\d{9}$/;
 const PASSWORD_MIN = 6;
 
 // Show every supported city so owners outside Kochi / Bangalore / Chennai
-// (e.g. Mumbai, Delhi, Hyderabad) can sign up too — they default to the
-// self-serve tier, but at least the dropdown lets them through. The
-// `FULL_SERVICE_SET` flag below toggles the "we'll do KYC + photoshoot"
-// helper copy when one of the three launch cities is picked.
-const ALL_CITIES = Object.keys(CITY_NAMES);
+// Show launched cities only — avoids showing dead cities (Hyderabad, Pune, etc.)
+// that have no landing pages. FULL_SERVICE_SET toggles the "we'll do KYC +
+// photoshoot" helper copy when one of the three launch cities is picked.
+const ALL_CITIES = [...LAUNCHED_CITIES];
 const FULL_SERVICE_SET = new Set<string>(FULL_SERVICE_CITIES as readonly string[]);
 
 function normalisePhoneInput(raw: string) {
@@ -253,7 +240,7 @@ export function OwnerSignupForm() {
           List your property
         </h1>
         <p className="mt-2 text-[var(--color-ink-muted)]">
-          Reach 10,000+ verified renters. Honest pricing. Zero commission.
+          Be among our first listed owners. Honest pricing. Zero commission.
         </p>
       </div>
 

@@ -19,7 +19,7 @@ export const FAQ_ITEMS = [
   },
   {
     q: "Why should I pay when I can find owners' numbers on Google?",
-    a: "Because most owner contact info on Google is from brokers or scrapers — not verified. With HostelPups you talk to KYC-verified owners directly. Plus our refund guarantee means we cover your first month rent if the PG isn't as described.",
+    a: "Because most owner contact info on Google is from brokers or scrapers — not verified. With HostelPups you talk to KYC-verified owners directly. Plus our visit-protection guarantee means we refund your platform fee if the PG is materially different from its listing when you visit.",
   },
   {
     q: "Are there any broker fees?",

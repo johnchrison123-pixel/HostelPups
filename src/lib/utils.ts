@@ -34,6 +34,57 @@ export function formatPrice(amount: number): string {
 }
 
 /**
+ * Validate a `?next=` redirect param so we don't open up the auth flow
+ * to arbitrary open-redirects. Only same-origin absolute paths are kept;
+ * `//evil.com`, full URLs, and anything that doesn't start with `/` are
+ * stripped. Used by LoginForm, SignupForm, OwnerSignupForm, the
+ * /auth/callback route, and the OwnerOnboardingFlow.
+ *
+ * Returning the original raw string (not a sanitized variant) keeps the
+ * existing callsites — which then prepend an origin — safe because the
+ * input has been proven to be a single-leading-slash same-origin path.
+ */
+export function safeNext(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  if (typeof raw !== "string") return null;
+  if (!raw.startsWith("/")) return null;
+  // Block protocol-relative URLs like //evil.com (browser treats as a host).
+  if (raw.startsWith("//")) return null;
+  // Block backslash-prefixed variants (some browsers normalize \\ to //).
+  if (raw.startsWith("/\\")) return null;
+  if (raw.startsWith("\\")) return null;
+  return raw;
+}
+
+/**
+ * Normalize a free-typed Indian phone input down to digits-only, then take the
+ * last 10 digits, then prefix `+91`. Returns `null` if the result doesn't look
+ * like a valid Indian mobile (10 digits starting 6-9 after stripping).
+ *
+ * This is the single canonical phone format used by every server action that
+ * writes to `profiles.phone` or `owners.contact_phone` — keeping it consistent
+ * is what makes "login with phone" continue to work after a profile-edit.
+ *
+ * Examples:
+ *   "+91 98765 43210"     → "+919876543210"
+ *   "919876543210"        → "+919876543210"
+ *   "09876543210"         → "+919876543210"
+ *   "9876543210"          → "+919876543210"
+ *   "98-76-54-32-10"      → "+919876543210"
+ *   "12345"               → null  (too short)
+ *   "1234567890"          → null  (doesn't start with 6-9)
+ *   ""                    → null  (empty)
+ */
+export function normalisePhoneInput(raw: string | null | undefined): string | null {
+  if (raw == null) return null;
+  const digits = String(raw).replace(/\D/g, "");
+  if (digits.length < 10) return null;
+  const last10 = digits.slice(-10);
+  if (!/^[6-9]\d{9}$/.test(last10)) return null;
+  return `+91${last10}`;
+}
+
+/**
  * "Kochi" → "Kochi" (passthrough). For unknown cities, title-case.
  */
 export function prettyCity(city: string): string {

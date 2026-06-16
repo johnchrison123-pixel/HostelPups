@@ -66,7 +66,7 @@ export default function AboutPage() {
           team on the ground.
           <br />
           <strong className="text-[var(--color-ink)]">Bangalore + Chennai</strong> —
-          launching Q3/Q4.
+          live, growing supply.
           <br />
           <strong className="text-[var(--color-ink)]">All other Kerala cities</strong> —
           self-serve listings for owners.

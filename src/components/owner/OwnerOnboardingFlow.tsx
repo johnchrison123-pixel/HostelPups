@@ -20,28 +20,15 @@ import {
   PRICING,
   CITY_NAMES,
   FULL_SERVICE_CITIES,
+  LAUNCHED_CITIES,
 } from "@/lib/site";
-import { cn, formatPrice } from "@/lib/utils";
+import { cn, formatPrice, safeNext } from "@/lib/utils";
 import { ensureOwnerRecord, setOwnerTier } from "@/lib/owner-actions";
 import type { OwnerTier } from "@/lib/types";
 
-// Show every supported city so owners outside Kochi / Bangalore / Chennai
-// (e.g. Mumbai, Delhi, Hyderabad) can complete onboarding too — they default
-// to the self-serve tier. The full-service helper copy appears when one of
-// the three launch cities is picked.
-const ALL_CITIES = Object.keys(CITY_NAMES);
-
-/**
- * Validate the `?next=` redirect param so we don't open up the onboarding
- * flow to arbitrary open-redirects.
- */
-function safeNext(raw: string | null): string | null {
-  if (!raw) return null;
-  if (!raw.startsWith("/")) return null;
-  if (raw.startsWith("//")) return null;
-  if (raw.startsWith("/\\")) return null;
-  return raw;
-}
+// Show launched cities only — mirrors OwnerSignupForm. Full-service helper
+// copy appears for the 3 full-service cities; others default to self-serve.
+const ALL_CITIES = [...LAUNCHED_CITIES];
 
 /**
  * Two-step owner onboarding flow shown after magic-link auth:

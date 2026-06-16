@@ -42,8 +42,8 @@ export function Hero() {
           <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border-strong)] bg-[var(--color-bg-elevated)] px-4 py-2 text-xs sm:text-sm font-medium shadow-sm mb-6">
             <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
             <span>
-              <strong className="text-[var(--color-ink)]">10,000+</strong>
-              <span className="text-[var(--color-ink-muted)]"> verified listings · zero brokerage</span>
+              <strong className="text-[var(--color-ink)]">Beta launch</strong>
+              <span className="text-[var(--color-ink-muted)]"> — India&apos;s newest verified PG marketplace · zero brokerage</span>
             </span>
           </div>
 
@@ -189,33 +189,33 @@ export function Hero() {
             <Link href="/pet-friendly-pg/kochi"><Badge tone="pet" icon={<PawPrint size={12} />}>Pet-friendly</Badge></Link>
           </div>
 
-          {/* Trust strip — three quantified signals */}
+          {/* Trust strip — three honest signals */}
           <div className="mt-10 sm:mt-12 grid grid-cols-3 gap-4 sm:gap-8 max-w-2xl mx-auto">
             <div className="flex flex-col items-center text-center">
               <div className="inline-flex items-center gap-1.5 text-[var(--color-ink)]">
                 <ShieldCheck size={18} className="text-emerald-600 shrink-0" aria-hidden="true" />
-                <span className="text-lg sm:text-2xl font-black">10,000+</span>
+                <span className="text-lg sm:text-2xl font-black">KYC</span>
               </div>
               <span className="text-xs sm:text-sm text-[var(--color-ink-muted)] mt-0.5">
-                verified listings
+                verified owners
               </span>
             </div>
             <div className="flex flex-col items-center text-center border-x border-[var(--color-border)]">
               <div className="inline-flex items-center gap-1.5 text-[var(--color-ink)]">
                 <Users size={18} className="text-[var(--color-brand-700)] shrink-0" aria-hidden="true" />
-                <span className="text-lg sm:text-2xl font-black">50,000+</span>
+                <span className="text-lg sm:text-2xl font-black">6</span>
               </div>
               <span className="text-xs sm:text-sm text-[var(--color-ink-muted)] mt-0.5">
-                inquiries served
+                cities &amp; growing
               </span>
             </div>
             <div className="flex flex-col items-center text-center">
               <div className="inline-flex items-center gap-1.5 text-[var(--color-ink)]">
                 <Star size={18} className="fill-amber-400 text-amber-400 shrink-0" aria-hidden="true" />
-                <span className="text-lg sm:text-2xl font-black">4.6</span>
+                <span className="text-lg sm:text-2xl font-black">Rs 0</span>
               </div>
               <span className="text-xs sm:text-sm text-[var(--color-ink-muted)] mt-0.5">
-                avg rating
+                brokerage. ever.
               </span>
             </div>
           </div>

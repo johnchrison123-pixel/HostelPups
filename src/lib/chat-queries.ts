@@ -151,38 +151,72 @@ export async function getMyConversations(): Promise<MyConversations> {
   }
 
   // === Fetch last-message per inquiry in ONE query, then map ===
+  // Preferred path: the `get_latest_messages_per_inquiry` RPC from
+  // migration 0008 does DISTINCT ON inside Postgres so we only pull N
+  // rows instead of all messages for all inquiries. Falls back to the
+  // pre-0008 client-side dedupe so the inbox doesn't break if the
+  // migration hasn't been applied yet.
   const inquiryIds = [
     ...asRenterRows.map((r) => r.id),
     ...asOwnerRows.map((r) => r.id),
   ];
   const latestByInquiry: Record<string, ConversationLastMessage> = {};
   if (inquiryIds.length > 0) {
+    let rpcSucceeded = false;
     try {
-      const { data: msgs, error } = await supabase
-        .from("messages")
-        .select("inquiry_id, content, was_redacted, created_at, sender_id")
-        .in("inquiry_id", inquiryIds)
-        .order("created_at", { ascending: false });
-      if (!error && msgs) {
-        for (const m of msgs as Array<{
+      const { data, error } = await supabase.rpc(
+        "get_latest_messages_per_inquiry",
+        { p_inquiry_ids: inquiryIds },
+      );
+      if (!error && Array.isArray(data)) {
+        for (const m of data as Array<{
           inquiry_id: string;
           content: string;
           was_redacted: boolean;
           created_at: string;
           sender_id: string;
         }>) {
-          if (!latestByInquiry[m.inquiry_id]) {
-            latestByInquiry[m.inquiry_id] = {
-              content: m.content,
-              was_redacted: m.was_redacted,
-              created_at: m.created_at,
-              sender_id: m.sender_id,
-            };
-          }
+          latestByInquiry[m.inquiry_id] = {
+            content: m.content,
+            was_redacted: m.was_redacted,
+            created_at: m.created_at,
+            sender_id: m.sender_id,
+          };
         }
+        rpcSucceeded = true;
       }
     } catch {
-      // messages table missing — leave empty map
+      // RPC missing — fall through to legacy path below
+    }
+
+    if (!rpcSucceeded) {
+      try {
+        const { data: msgs, error } = await supabase
+          .from("messages")
+          .select("inquiry_id, content, was_redacted, created_at, sender_id")
+          .in("inquiry_id", inquiryIds)
+          .order("created_at", { ascending: false });
+        if (!error && msgs) {
+          for (const m of msgs as Array<{
+            inquiry_id: string;
+            content: string;
+            was_redacted: boolean;
+            created_at: string;
+            sender_id: string;
+          }>) {
+            if (!latestByInquiry[m.inquiry_id]) {
+              latestByInquiry[m.inquiry_id] = {
+                content: m.content,
+                was_redacted: m.was_redacted,
+                created_at: m.created_at,
+                sender_id: m.sender_id,
+              };
+            }
+          }
+        }
+      } catch {
+        // messages table missing — leave empty map
+      }
     }
   }
 

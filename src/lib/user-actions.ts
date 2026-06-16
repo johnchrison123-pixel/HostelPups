@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { normalisePhoneInput } from "@/lib/utils";
 
 /* ============================================================
    Renter (non-owner) user actions
@@ -11,22 +12,28 @@ import { createClient } from "@/lib/supabase/server";
 /**
  * Toggle a listing in the current user's favorites.
  *
- * - If a favorites row already exists for (user_id, listing_id), delete it
- *   and return { favorited: false }.
- * - Otherwise insert one and return { favorited: true }.
+ * Now idempotent — the caller passes the desired final state via
+ * `favorited` and the server enforces it. This eliminates the TOCTOU race
+ * (M1) where a fast double-click could land both halves of the
+ * SELECT-then-MUTATE dance on the same prior state and end up flipping
+ * the heart back to its original value.
+ *
+ * - `favorited === true`  → upsert with ignoreDuplicates so the row is
+ *   guaranteed to exist after this call. No-op if it already exists.
+ * - `favorited === false` → DELETE by composite key; no-op if no row exists.
+ *
+ * Backwards compatible: callers that still invoke `toggleFavorite(id)` with
+ * no explicit desired state fall back to the old read-then-flip behaviour
+ * (still TOCTOU-prone, but the new signature lets caller code converge to
+ * the idempotent form over time).
  *
  * RLS policy `favorites_all_own` (supabase/migrations/0002_rls_policies.sql)
- * already restricts every operation to `auth.uid()`, so we don't need to
- * pass user_id explicitly — Supabase fills it in via the policy's USING
- * clause for selects, and via the WITH CHECK clause for inserts. We still
- * pass it for clarity.
- *
- * Forward-compatible: if the favorites table doesn't exist yet (e.g.
- * migrations not applied), the function throws so the client can surface
- * a sensible error in the UI.
+ * restricts every operation to `auth.uid()` already, so we pass user_id for
+ * clarity rather than for security.
  */
 export async function toggleFavorite(
   listing_id: string,
+  desired?: boolean,
 ): Promise<{ favorited: boolean }> {
   const supabase = await createClient();
   const {
@@ -34,31 +41,44 @@ export async function toggleFavorite(
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
-  // Check if a row already exists.
-  const { data: existing } = await supabase
-    .from("favorites")
-    .select("listing_id")
-    .eq("user_id", user.id)
-    .eq("listing_id", listing_id)
-    .maybeSingle();
-
-  if (existing) {
-    const { error } = await supabase
+  // Resolve the desired final state. If the caller didn't pass one, fall back
+  // to a read — slightly racier but matches legacy callsites.
+  let favorited: boolean;
+  if (typeof desired === "boolean") {
+    favorited = desired;
+  } else {
+    const { data: existing } = await supabase
       .from("favorites")
-      .delete()
+      .select("listing_id")
       .eq("user_id", user.id)
-      .eq("listing_id", listing_id);
-    if (error) throw error;
-    revalidatePath("/saved");
-    return { favorited: false };
+      .eq("listing_id", listing_id)
+      .maybeSingle();
+    favorited = !existing;
   }
 
+  if (favorited) {
+    // Idempotent "save" — upsert on the composite PK so a concurrent caller
+    // doesn't 23505 us. If a row exists, this is a no-op (ignoreDuplicates).
+    const { error } = await supabase
+      .from("favorites")
+      .upsert(
+        { user_id: user.id, listing_id },
+        { onConflict: "user_id,listing_id", ignoreDuplicates: true },
+      );
+    if (error) throw error;
+    revalidatePath("/saved");
+    return { favorited: true };
+  }
+
+  // Idempotent "unsave" — DELETE by composite key is a no-op when no row.
   const { error } = await supabase
     .from("favorites")
-    .insert({ user_id: user.id, listing_id });
+    .delete()
+    .eq("user_id", user.id)
+    .eq("listing_id", listing_id);
   if (error) throw error;
   revalidatePath("/saved");
-  return { favorited: true };
+  return { favorited: false };
 }
 
 /**
@@ -85,7 +105,24 @@ export async function updateUserProfile(input: {
     payload.name = trimmed;
   }
   if (typeof input.phone === "string") {
-    payload.phone = input.phone.trim();
+    // C2 — normalize to canonical `+91XXXXXXXXXX` so future logins via the
+    // phone-to-email lookup (findEmailByPhone) keep working. If we wrote a
+    // raw 10-digit string here, the next phone-login attempt would never
+    // match: that lookup keys on the `+91`-prefixed form.
+    const raw = input.phone.trim();
+    if (raw.length === 0) {
+      // Allow clearing the phone (the field is optional on
+      // UserProfileForm). Setting to null wipes the value.
+      payload.phone = null;
+    } else {
+      const normalised = normalisePhoneInput(raw);
+      if (!normalised) {
+        throw new Error(
+          "Phone must be a 10-digit Indian mobile starting with 6, 7, 8, or 9.",
+        );
+      }
+      payload.phone = normalised;
+    }
   }
 
   if (Object.keys(payload).length === 0) return;

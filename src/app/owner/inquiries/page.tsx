@@ -10,12 +10,14 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { OwnerLayout } from "@/components/owner/OwnerSidebar";
+import { InquiryListWithRealtime } from "@/components/chat/InquiryListWithRealtime";
 import { buildMetadata } from "@/lib/seo";
 import { CITY_NAMES } from "@/lib/site";
 import { timeAgo } from "@/lib/utils";
 import {
   getCurrentOwner,
   getOwnerInquiries,
+  getOwnerListings,
 } from "@/lib/owner-queries";
 
 export const metadata: Metadata = buildMetadata({
@@ -49,15 +51,19 @@ export default async function OwnerInquiriesPage() {
     redirect("/owner/onboarding");
   }
 
-  const inquiries = await getOwnerInquiries();
+  const [inquiries, listings] = await Promise.all([
+    getOwnerInquiries(),
+    getOwnerListings(),
+  ]);
+  const listingIds = listings.map((l) => l.id);
+  const inquiryIds = inquiries.map((i) => i.id);
 
   return (
     <OwnerLayout businessName={current.owner.business_name}>
       <header className="mb-4">
         <h1 className="text-2xl sm:text-3xl font-black tracking-tight">Inquiries</h1>
         <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
-          Renters reach you through HostelPups secure chat. Reply within 4 hours to keep
-          your response rate badge.
+          Renters reach you through HostelPups secure chat. Phone numbers stay private.
         </p>
       </header>
 
@@ -81,6 +87,7 @@ export default async function OwnerInquiriesPage() {
         </div>
       </div>
 
+      <InquiryListWithRealtime listingIds={listingIds} inquiryIds={inquiryIds}>
       {inquiries.length === 0 ? (
         <div className="rounded-2xl border-2 border-dashed border-[var(--color-border-strong)] bg-[var(--color-surface)] p-10 text-center">
           <div className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-brand-100)] text-[var(--color-brand-700)] mb-4">
@@ -156,6 +163,7 @@ export default async function OwnerInquiriesPage() {
           </ul>
         </div>
       )}
+      </InquiryListWithRealtime>
     </OwnerLayout>
   );
 }

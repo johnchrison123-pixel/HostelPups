@@ -72,7 +72,7 @@ export default async function Page({ params }: Props) {
         "Filter by group size — 1 bachelor, 2-3 friends, or larger bachelor groups.",
         "Transparent deposit info — see total deposit upfront before paying anything.",
         "Direct chat: ask about visitor rules, food rules, late-hour entry — get clear answers in writing.",
-        "Move-in guarantee: if the property isn't as described, we refund your platform fee.",
+        "Visit-protection guarantee: if the property is materially different from its listing, we refund your platform fee.",
       ]}
       />
     </>

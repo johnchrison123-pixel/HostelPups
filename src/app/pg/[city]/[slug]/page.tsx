@@ -644,7 +644,7 @@ export default async function ListingPage({ params }: Props) {
                     <p className="text-xs text-[var(--color-ink-muted)]">
                       {owner.tier === "full_service" ? "HostelPups Full-Service Partner" : "HostelPups Self-Serve Owner"}
                       <span className="mx-1.5">·</span>
-                      Typically responds within 2 hours
+                      Responds via HostelPups chat
                     </p>
                   </div>
                 </div>
@@ -702,7 +702,7 @@ export default async function ListingPage({ params }: Props) {
               <div className="mt-5 text-xs text-[var(--color-ink-subtle)] flex items-center gap-1.5">
                 <ShieldCheck size={12} className="text-emerald-600" aria-hidden="true" />
                 {listing.is_verified
-                  ? "Owner KYC verified · Move-in guarantee"
+                  ? "Owner KYC verified · Visit-protection guarantee"
                   : "Verification in progress — chat available after KYC"}
               </div>
             </div>

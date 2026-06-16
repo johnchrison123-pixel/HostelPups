@@ -129,3 +129,34 @@ export const WEDGE_TAGS = {
 } as const;
 
 export type WedgeTag = keyof typeof WEDGE_TAGS;
+
+/**
+ * Move-In Guarantee — single source of truth.
+ *
+ * Use this constant everywhere the guarantee is mentioned (marketing, FAQ,
+ * terms, listing detail). Never write the guarantee text ad-hoc — copy-drift
+ * is what created the mismatch between Terms, FAQ, and marketing copy.
+ *
+ * What the guarantee actually covers:
+ *   - Scope: platform fee refund only (we don't hold rent or deposits)
+ *   - Trigger: listing photos / amenities are materially misrepresented
+ *     compared to the physical property on the day of your visit
+ *   - Owner's token deposit is the owner's separate responsibility
+ */
+export const MOVE_IN_GUARANTEE_COPY =
+  "Visit-protection guarantee: if a listing's photos or amenities are materially misrepresented when you visit, HostelPups refunds your platform fee. Owner is responsible for any token deposit refund separately.";
+
+/**
+ * Cities with a live landing page — used for dropdowns and sitemaps.
+ * Keep in sync with pg-in-{city}/ app routes and sitemap.ts.
+ */
+export const LAUNCHED_CITIES = [
+  "kochi",
+  "trivandrum",
+  "calicut",
+  "trichur",
+  "bangalore",
+  "chennai",
+] as const;
+
+export type LaunchedCity = (typeof LAUNCHED_CITIES)[number];

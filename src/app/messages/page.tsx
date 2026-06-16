@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
 import { Container } from "@/components/ui/Container";
 import { ConversationList } from "@/components/chat/ConversationList";
+import { ConversationListWithRealtime } from "@/components/chat/ConversationListWithRealtime";
 import { buildMetadata } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/auth";
 import { getMyConversations } from "@/lib/chat-queries";
@@ -22,6 +23,10 @@ export default async function MessagesPage() {
   }
 
   const { asRenter, asOwner } = await getMyConversations();
+  const inquiryIds = [
+    ...asRenter.map((c) => c.id),
+    ...asOwner.map((c) => c.id),
+  ];
 
   return (
     <Container size="md" className="py-6 sm:py-10">
@@ -50,7 +55,9 @@ export default async function MessagesPage() {
         </p>
       </div>
 
-      <ConversationList asRenter={asRenter} asOwner={asOwner} />
+      <ConversationListWithRealtime inquiryIds={inquiryIds}>
+        <ConversationList asRenter={asRenter} asOwner={asOwner} />
+      </ConversationListWithRealtime>
     </Container>
   );
 }

@@ -14,21 +14,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/client";
 import { findEmailByPhone } from "@/lib/auth-actions";
-import { cn } from "@/lib/utils";
-
-/**
- * Validate the `?next=` redirect param so we don't open up the auth flow
- * to arbitrary open-redirects. Only same-origin absolute paths are kept;
- * `//evil.com`, full URLs, and anything that doesn't start with `/` are
- * stripped.
- */
-function safeNext(raw: string | null): string | null {
-  if (!raw) return null;
-  if (!raw.startsWith("/")) return null;
-  if (raw.startsWith("//")) return null;
-  if (raw.startsWith("/\\")) return null;
-  return raw;
-}
+import { cn, safeNext } from "@/lib/utils";
 
 interface LoginFormProps {
   /** Cross-link target for the "Are you an owner? Owner login" footer link. */

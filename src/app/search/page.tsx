@@ -140,8 +140,9 @@ export default async function SearchPage({ searchParams }: Props) {
   if (params.tag) query = query.contains("wedge_tags", [params.tag]);
   if (params.q) {
     // Text search across title, area, description.
-    // Escape `%` and `,` in the user input so the .or() filter parses correctly.
-    const safeQ = params.q.replace(/[%,]/g, " ").trim();
+    // PostgREST .or() with ilike uses LIKE semantics — strip wildcards + parser
+    // metachars to keep results predictable.
+    const safeQ = params.q.replace(/[%,_()*]/g, " ").trim();
     if (safeQ) {
       query = query.or(
         `title.ilike.%${safeQ}%,area.ilike.%${safeQ}%,description.ilike.%${safeQ}%`,

@@ -227,26 +227,41 @@ export function PhotoUploader({
   async function markCover(idx: number) {
     const target = photos[idx];
     if (!target || target.isCover) return;
+    if (!listingId) return;
     setError(null);
 
     const snapshot = photos;
     setPhotos((prev) => prev.map((p, i) => ({ ...p, isCover: i === idx })));
 
+    // H6 fix: run both UPDATEs concurrently so the "set new cover" call
+    // doesn't sit behind a serial "clear all" sweep. Still not atomic —
+    // a TODO is to ship a `set_cover_photo(listing_id, photo_id)` Postgres
+    // function and call it via .rpc() for true atomicity — but Promise.all
+    // shrinks the dirty window from ~2 RTT to ~1 RTT, and we scope the
+    // "clear all" call to siblings only so a partial failure can't wipe
+    // the target row's own cover flag.
     try {
-      // Unmark previous covers
-      const previousCovers = snapshot.filter((p) => p.isCover);
-      for (const p of previousCovers) {
-        await supabase
+      const [clearRes, setRes] = await Promise.all([
+        supabase
           .from("listing_photos")
           .update({ is_cover: false })
-          .eq("id", p.id);
+          .eq("listing_id", listingId)
+          .neq("id", target.id),
+        supabase
+          .from("listing_photos")
+          .update({ is_cover: true })
+          .eq("id", target.id),
+      ]);
+      if (setRes.error) throw setRes.error;
+      // clearRes failing is non-fatal — at worst there's a second row
+      // still flagged is_cover=true. The UI will surface a warning so
+      // the owner can retry, and the cover-photo selector at render time
+      // is deterministic on display_order anyway.
+      if (clearRes.error) {
+        setError(
+          `Cover saved, but couldn't clear the previous cover: ${clearRes.error.message}. Try again.`,
+        );
       }
-      // Mark new cover
-      const { error: upErr } = await supabase
-        .from("listing_photos")
-        .update({ is_cover: true })
-        .eq("id", target.id);
-      if (upErr) throw upErr;
     } catch (e) {
       setPhotos(snapshot);
       setError(`Couldn't update cover: ${(e as Error).message}`);

@@ -12,13 +12,13 @@ interface Stat {
 const STATS: Stat[] = [
   {
     icon: Users,
-    value: "10,000+",
-    label: "verified renters",
+    value: "Growing",
+    label: "renter community",
     accent: "text-[var(--color-brand-700)] bg-[var(--color-brand-100)]",
   },
   {
     icon: Building2,
-    value: "500+",
+    value: "KYC-verified",
     label: "PG owners",
     accent: "text-indigo-700 bg-indigo-50",
   },

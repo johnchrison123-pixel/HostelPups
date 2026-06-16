@@ -8,7 +8,7 @@ export const revalidate = 60;
 export const metadata: Metadata = buildMetadata({
   title: "PG in Bangalore — Verified Hostels Near Tech Parks",
   description:
-    "Find verified PGs in Bangalore — Marathahalli, HSR Layout, Koramangala, Whitefield. Couple-friendly, bachelor-friendly options. Talk to owners directly. Launching Q3.",
+    "Find verified PGs in Bangalore — Marathahalli, HSR Layout, Koramangala, Whitefield. Couple-friendly, bachelor-friendly options. Talk to owners directly. Live now, supply growing daily.",
   path: "/pg-in-bangalore",
   keywords: [
     "PG in Bangalore",
@@ -53,7 +53,7 @@ export default function BangalorePage() {
         city="bangalore"
         state="Karnataka"
         areas={areas}
-        intro="Bangalore PG hunting without the broker hustle. From tech-park-adjacent PGs in HSR & Marathahalli to couple-friendly flats in Indiranagar — find verified listings, talk to owners directly. Launching with our first 100 verified Bangalore PGs in Q3."
+        intro="Bangalore PG hunting without the broker hustle. From tech-park-adjacent PGs in HSR & Marathahalli to couple-friendly flats in Indiranagar — find verified listings, talk to owners directly. Live and growing — verified Bangalore PGs onboarding now."
       />
     </>
   );

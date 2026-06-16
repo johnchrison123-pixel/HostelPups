@@ -18,20 +18,8 @@ import {
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/client";
 import { createAccount } from "@/lib/auth-actions";
-import { cn } from "@/lib/utils";
-import { CITY_NAMES } from "@/lib/site";
-
-/**
- * Validate the `?next=` redirect param so we don't open up the signup flow
- * to arbitrary open-redirects. Only same-origin absolute paths are kept.
- */
-function safeNext(raw: string | null): string | null {
-  if (!raw) return null;
-  if (!raw.startsWith("/")) return null;
-  if (raw.startsWith("//")) return null;
-  if (raw.startsWith("/\\")) return null;
-  return raw;
-}
+import { cn, safeNext } from "@/lib/utils";
+import { CITY_NAMES, LAUNCHED_CITIES } from "@/lib/site";
 
 /**
  * Renter signup — single-step password auth.
@@ -52,7 +40,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^[6-9]\d{9}$/;
 const PASSWORD_MIN = 6;
 
-const CITY_OPTIONS = Object.entries(CITY_NAMES) as [string, string][];
+const CITY_OPTIONS = LAUNCHED_CITIES.map((slug) => [slug, CITY_NAMES[slug]] as [string, string]);
 
 function normalisePhoneInput(raw: string) {
   return raw.replace(/[^0-9]/g, "").slice(0, 10);

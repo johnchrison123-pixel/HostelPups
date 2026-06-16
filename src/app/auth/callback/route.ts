@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { safeNext } from "@/lib/utils";
 
 /**
  * Magic-link / OAuth callback handler.
@@ -17,7 +18,12 @@ import { createClient } from "@/lib/supabase/server";
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/";
+  // C1 — validate ?next= through the shared safeNext() helper. Only same-
+  // origin paths beginning with a single `/` survive; anything else (full
+  // URLs, protocol-relative `//evil.com`, `/\\evil.com`) is rejected and
+  // we fall back to the home page. Without this, /auth/callback would
+  // happily forward a freshly-authenticated session to a phishing site.
+  const next = safeNext(searchParams.get("next")) ?? "/";
 
   if (code) {
     const supabase = await createClient();

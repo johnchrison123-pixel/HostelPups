@@ -20,12 +20,12 @@ const RENTER_BULLETS = [
   "Sign up in 30 seconds. No email verification needed during beta.",
   "Talk directly to verified owners — no broker calls",
   `Zero brokerage. Ever. Pay only ${formatPrice(PRICING.user.week.price)}/week to unlock.`,
-  "Move-in guarantee — refund if it isn't as described",
+  "Visit-protection guarantee — platform fee refunded if listing is materially misrepresented",
 ];
 
 const OWNER_BULLETS = [
   "Create your owner account in under a minute. Beta — no verification step.",
-  "Reach 10,000+ verified renters actively searching",
+  "Be among the first owners on India's newest verified PG marketplace",
   `Boost listings to top of search from ${formatPrice(PRICING.owner.boost.perDay)}/day`,
   "We handle KYC + photoshoot on the full-service tier",
 ];

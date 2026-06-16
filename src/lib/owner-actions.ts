@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { slugify } from "@/lib/utils";
+import { normalisePhoneInput, slugify } from "@/lib/utils";
+import { PRICING } from "@/lib/site";
 import type {
   GenderPreference,
   ListingStatus,
@@ -155,7 +156,22 @@ export async function updateOwnerProfile(input: {
     payload.business_name = input.business_name;
   }
   if (typeof input.contact_phone === "string") {
-    payload.contact_phone = input.contact_phone;
+    // M4 — normalize to canonical `+91XXXXXXXXXX`. Mirror of the renter
+    // profile fix (C2). Owner contact_phone is admin-only today, but we
+    // still want the same canonical form so future login-by-phone for
+    // owners matches what auth.users.phone holds.
+    const raw = input.contact_phone.trim();
+    if (raw.length === 0) {
+      payload.contact_phone = null;
+    } else {
+      const normalised = normalisePhoneInput(raw);
+      if (!normalised) {
+        throw new Error(
+          "Contact phone must be a 10-digit Indian mobile starting with 6, 7, 8, or 9.",
+        );
+      }
+      payload.contact_phone = normalised;
+    }
   }
 
   if (Object.keys(payload).length === 0) return;
@@ -244,6 +260,41 @@ export async function createListing(input: ListingFormPayload) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
+
+  // C7 — enforce the self-serve active-listing cap. Self-serve tier owners
+  // can have at most `PRICING.owner.selfServe.maxActiveListings` (3) listings
+  // in any non-archived state. Full-service owners are unlimited. We treat
+  // every status except `rejected` as "active enough to count" so that
+  // pausing or drafting doesn't let an owner bypass the cap.
+  //
+  // The owner row lookup also catches the case where someone hits this
+  // server action without an owner profile yet — we give them a friendly
+  // message instead of a confusing RLS failure further down.
+  const { data: ownerRow, error: ownerLookupError } = await supabase
+    .from("owners")
+    .select("tier")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (ownerLookupError) throw ownerLookupError;
+  if (!ownerRow) {
+    throw new Error(
+      "Your owner profile isn't set up yet. Please finish onboarding before creating a listing.",
+    );
+  }
+  if (ownerRow.tier === "self_serve") {
+    const { count, error: countError } = await supabase
+      .from("listings")
+      .select("id", { count: "exact", head: true })
+      .eq("owner_id", user.id)
+      .in("status", ["live", "pending_review", "draft", "full", "paused"]);
+    if (countError) throw countError;
+    const max = PRICING.owner.selfServe.maxActiveListings;
+    if ((count ?? 0) >= max) {
+      throw new Error(
+        `Self-serve plan allows up to ${max} active listings. Upgrade to Full-service for unlimited, or delete an old listing first.`,
+      );
+    }
+  }
 
   const totalBeds = sumRoom(input.room_types, "occupancy");
   const totalVacancies = sumRoom(input.room_types, "vacancies");

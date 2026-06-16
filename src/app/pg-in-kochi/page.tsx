@@ -58,7 +58,7 @@ export default function KochiPage() {
         city="kochi"
         state="Kerala"
         areas={areas}
-        totalListings={500}
+        totalListings={undefined}
         intro="Find verified PGs, hostels, and rental flats across Kochi — from budget student PGs near Rajagiri & CUSAT to couple-friendly flats in Kakkanad's tech corridor. Every listing KYC-verified, every owner reachable directly. No brokers, no hidden fees."
       />
     </>

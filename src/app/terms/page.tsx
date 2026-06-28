@@ -80,10 +80,10 @@ export default function TermsPage() {
           Last reviewed: {new Date().getFullYear()}. For legal concerns or
           DPDP Act 2023 compliance questions, email{" "}
           <a
-            href="mailto:legal@hostelpups.in"
+            href="mailto:legal@hostelpups.com"
             className="text-[var(--color-brand-700)] hover:underline"
           >
-            legal@hostelpups.in
+            legal@hostelpups.com
           </a>
           .
         </p>

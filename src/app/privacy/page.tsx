@@ -47,7 +47,7 @@ export default function PrivacyPage() {
           <h2 className="text-xl font-bold text-[var(--color-ink)] mb-2">4. Your rights</h2>
           <p>
             You can request a copy of your data, ask us to delete your account, opt out of marketing emails, and update
-            your profile at any time. Email <a href="mailto:privacy@hostelpups.in" className="text-[var(--color-brand-700)] hover:underline">privacy@hostelpups.in</a>.
+            your profile at any time. Email <a href="mailto:privacy@hostelpups.com" className="text-[var(--color-brand-700)] hover:underline">privacy@hostelpups.com</a>.
           </p>
         </section>
 
@@ -79,10 +79,10 @@ export default function PrivacyPage() {
           Last reviewed: {new Date().getFullYear()}. For privacy concerns or
           DPDP Act 2023 compliance questions, email{" "}
           <a
-            href="mailto:legal@hostelpups.in"
+            href="mailto:legal@hostelpups.com"
             className="text-[var(--color-brand-700)] hover:underline"
           >
-            legal@hostelpups.in
+            legal@hostelpups.com
           </a>
           .
         </p>

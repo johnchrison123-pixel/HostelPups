@@ -128,7 +128,7 @@ export default async function OpenGraphImage() {
             fontWeight: 600,
           }}
         >
-          hostelpups.in
+          hostelpups.com
         </div>
       </div>
     ),

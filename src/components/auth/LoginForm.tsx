@@ -174,7 +174,7 @@ export function LoginForm({
       await supabase.auth.signOut();
       setSubmitting(false);
       setError(
-        "This account has been suspended. Contact support@hostelpups.in for help.",
+        "This account has been suspended. Contact support@hostelpups.com for help.",
       );
       return;
     }

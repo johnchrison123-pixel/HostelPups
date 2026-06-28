@@ -205,10 +205,10 @@ export function SignupForm() {
           <p className="text-sm text-[var(--color-ink-muted)]">
             Didn&apos;t get the email? Check your spam folder, or contact{" "}
             <a
-              href="mailto:support@hostelpups.in"
+              href="mailto:support@hostelpups.com"
               className="font-semibold text-[var(--color-brand-700)] hover:underline"
             >
-              support@hostelpups.in
+              support@hostelpups.com
             </a>
             .
           </p>

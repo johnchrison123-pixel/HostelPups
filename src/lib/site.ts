@@ -6,15 +6,15 @@ export const SITE = {
   name: "HostelPups",
   tagline: "India's most trusted PG, hostel & flat marketplace",
   url:
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://hostelpups.in",
-  domain: "hostelpups.in",
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://hostelpups.com",
+  domain: "hostelpups.com",
   twitter: "@hostelpups",
-  email: "hello@hostelpups.in",
+  email: "hello@hostelpups.com",
   // TODO: replace placeholder before launch. Currently unused in any UI —
   // do NOT render in a `tel:` link or schema until a real number is set.
   phone: "+91-XXXXX-XXXXX",
-  supportEmail: "support@hostelpups.in",
-  ownerEmail: "owners@hostelpups.in",
+  supportEmail: "support@hostelpups.com",
+  ownerEmail: "owners@hostelpups.com",
 
   // Marketing
   description:

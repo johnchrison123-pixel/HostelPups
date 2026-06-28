@@ -217,10 +217,10 @@ export function OwnerSignupForm() {
           <p className="text-sm text-[var(--color-ink-muted)]">
             Didn&apos;t get the email? Check your spam folder, or contact{" "}
             <a
-              href="mailto:owners@hostelpups.in"
+              href="mailto:owners@hostelpups.com"
               className="font-semibold text-[var(--color-brand-700)] hover:underline"
             >
-              owners@hostelpups.in
+              owners@hostelpups.com
             </a>
             .
           </p>

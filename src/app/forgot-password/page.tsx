@@ -18,7 +18,7 @@ export const metadata: Metadata = buildMetadata({
  *
  * PENDING: wire `supabase.auth.resetPasswordForEmail()` once we have a
  * working email-delivery provider configured in Supabase. For now we
- * route users to support@hostelpups.in for manual reset.
+ * route users to support@hostelpups.com for manual reset.
  */
 export default function ForgotPasswordPage() {
   return (
